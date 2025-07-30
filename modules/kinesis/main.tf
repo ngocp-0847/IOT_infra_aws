@@ -4,11 +4,10 @@
 
 resource "aws_kinesis_stream" "iot_stream" {
   name             = var.stream_name
-  shard_count      = var.shard_count
   retention_period = 24
 
   stream_mode_details {
-    stream_mode = "PROVISIONED"
+    stream_mode = "ON_DEMAND"
   }
 
   tags = merge(var.tags, {
