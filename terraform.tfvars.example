@@ -1,0 +1,41 @@
+# ========================================
+# MẪU CẤU HÌNH BIẾN MÔI TRƯỜNG TERRAFORM
+# ========================================
+# Copy file này thành terraform.tfvars và chỉnh sửa theo nhu cầu
+
+# Thông tin cơ bản
+aws_region   = "us-east-2"
+project_name = "iot-data-platform"
+environment  = "dev"
+
+# VPC Configuration
+vpc_cidr              = "10.0.0.0/16"
+availability_zones    = ["us-east-2a", "us-east-2b"]
+public_subnet_cidrs   = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs  = ["10.0.10.0/24", "10.0.11.0/24"]
+
+# Kinesis Configuration
+kinesis_stream_name = "iot-sensor-stream"
+kinesis_shard_count = 1
+
+# DynamoDB Configuration
+dynamodb_table_name = "iot-processed-data"
+
+# S3 Configuration
+s3_bucket_name = "iot-raw-data-2024"
+
+# Lambda Configuration
+lambda_runtime     = "python3.11"
+lambda_timeout     = 300
+lambda_memory_size = 512
+
+# API Gateway Configuration
+api_gateway_name = "iot-data-api"
+
+# Tags chung cho tất cả resources
+tags = {
+  Project     = "iot-data-platform"
+  Environment = "dev"
+  Owner       = "devops-team"
+  ManagedBy   = "terraform"
+} 

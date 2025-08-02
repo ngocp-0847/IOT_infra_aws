@@ -4,7 +4,7 @@
 
 # IoT Policy
 resource "aws_iot_policy" "iot_policy" {
-  name = "${var.project_name}-iot-policy-${var.environment}"
+  name = "${var.project_name}_iot_policy_${var.environment}"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -25,7 +25,7 @@ resource "aws_iot_policy" "iot_policy" {
 
 # IoT Topic Rule
 resource "aws_iot_topic_rule" "kinesis_rule" {
-  name        = "${var.project_name}-kinesis-rule-${var.environment}"
+  name        = "${var.project_name}_kinesis_rule_${var.environment}"
   description = "Forward IoT messages to Kinesis"
   enabled     = true
   sql         = "SELECT * FROM 'iot/data'"
@@ -42,7 +42,7 @@ resource "aws_iot_topic_rule" "kinesis_rule" {
 
 # IAM Role cho IoT Core
 resource "aws_iam_role" "iot_kinesis_role" {
-  name = "${var.project_name}-iot-kinesis-role-${var.environment}"
+  name = "${var.project_name}_iot_kinesis_role_${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -62,7 +62,7 @@ resource "aws_iam_role" "iot_kinesis_role" {
 
 # IAM Policy cho IoT Core
 resource "aws_iam_role_policy" "iot_kinesis_policy" {
-  name = "${var.project_name}-iot-kinesis-policy-${var.environment}"
+  name = "${var.project_name}_iot_kinesis_policy_${var.environment}"
   role = aws_iam_role.iot_kinesis_role.id
 
   policy = jsonencode({
@@ -81,7 +81,7 @@ resource "aws_iam_role_policy" "iot_kinesis_policy" {
 
 # IoT Thing Type
 resource "aws_iot_thing_type" "sensor" {
-  name = "${var.project_name}-sensor-${var.environment}"
+  name = "${var.project_name}_sensor_${var.environment}"
 
   properties {
     description = "IoT Sensor Device Type"

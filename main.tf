@@ -122,9 +122,6 @@ module "monitoring" {
   project_name = var.project_name
   kinesis_stream_name = module.kinesis.stream_name
   dynamodb_table_name = module.dynamodb.table_name
-  lambda_function_names = [
-    module.lambda.stream_processor_function_name,
-    module.lambda.query_function_name
-  ]
+  lambda_function_name = module.lambda.query_function_name
   tags = var.tags
 } 

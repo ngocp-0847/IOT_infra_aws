@@ -17,7 +17,9 @@ terraform {
   }
 
   backend "s3" {
-    # Sẽ được cấu hình trong environments
+    bucket         = "iot-infra-ngoctera"
+    key            = "terraform"
+    region         = "us-east-2"
   }
 }
 

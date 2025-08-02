@@ -1,23 +1,6 @@
 # =============================================================================
-# Monitoring Module - Free Tier Optimized
+# Monitoring Module
 # =============================================================================
-
-# CloudWatch Alarms cho Free Tier Usage
-resource "aws_cloudwatch_metric_alarm" "free_tier_usage" {
-  alarm_name          = "${var.project_name}-free-tier-usage-${var.environment}"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "1"
-  metric_name         = "FreeTierUsage"
-  namespace           = "AWS/Usage"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "80"  # Cảnh báo khi sử dụng 80% Free Tier
-  alarm_description   = "Free Tier usage approaching limit"
-  
-  alarm_actions = [aws_sns_topic.monitoring.arn]
-  
-  tags = var.tags
-}
 
 # CloudWatch Alarm cho Lambda Errors
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
@@ -83,32 +66,6 @@ resource "aws_sns_topic_subscription" "email" {
   topic_arn = aws_sns_topic.monitoring.arn
   protocol  = "email"
   endpoint  = var.alert_email
-}
-
-# AWS Budgets để track chi phí
-resource "aws_budgets_budget" "cost" {
-  name              = "${var.project_name}-cost-budget-${var.environment}"
-  budget_type       = "COST"
-  limit_amount      = "10"  # $10/tháng cho Free Tier
-  limit_unit        = "USD"
-  time_period_start = "2024-01-01_00:00:00"
-  time_unit         = "MONTHLY"
-  
-  notification {
-    comparison_operator        = "GREATER_THAN"
-    threshold                  = 80
-    threshold_type            = "PERCENTAGE"
-    notification_type         = "ACTUAL"
-    subscriber_email_addresses = var.enable_email_alerts ? [var.alert_email] : []
-  }
-  
-  notification {
-    comparison_operator        = "GREATER_THAN"
-    threshold                  = 100
-    threshold_type            = "PERCENTAGE"
-    notification_type         = "ACTUAL"
-    subscriber_email_addresses = var.enable_email_alerts ? [var.alert_email] : []
-  }
 }
 
 # CloudWatch Dashboard cho monitoring

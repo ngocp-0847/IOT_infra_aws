@@ -48,6 +48,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "raw_data" {
     id     = "aggressive_transition"
     status = "Enabled"
 
+    filter {
+      prefix = ""
+    }
+
     transition {
       days          = 7    # Giảm từ 30 xuống 7 ngày để tiết kiệm
       storage_class = "STANDARD_IA"
@@ -72,6 +76,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "raw_data" {
   rule {
     id     = "delete_old_versions"
     status = "Enabled"
+
+    filter {
+      prefix = ""
+    }
 
     noncurrent_version_transition {
       noncurrent_days = 7    # Giảm từ 30 xuống 7 ngày
