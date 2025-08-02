@@ -52,21 +52,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "raw_data" {
       prefix = ""
     }
 
-    transition {
-      days          = 7    # Giảm từ 30 xuống 7 ngày để tiết kiệm
-      storage_class = "STANDARD_IA"
-    }
-
-    transition {
-      days          = 30   # Giảm từ 90 xuống 30 ngày
-      storage_class = "GLACIER"
-    }
-
-    transition {
-      days          = 90   # Giảm từ 365 xuống 90 ngày
-      storage_class = "DEEP_ARCHIVE"
-    }
-
     # Xóa data sau 180 ngày để tiết kiệm storage
     expiration {
       days = 180
@@ -82,17 +67,17 @@ resource "aws_s3_bucket_lifecycle_configuration" "raw_data" {
     }
 
     noncurrent_version_transition {
-      noncurrent_days = 7    # Giảm từ 30 xuống 7 ngày
+      noncurrent_days = 30   # Tối thiểu 30 ngày cho STANDARD_IA
       storage_class   = "STANDARD_IA"
     }
 
     noncurrent_version_transition {
-      noncurrent_days = 30   # Giảm từ 90 xuống 30 ngày
+      noncurrent_days = 90   # Tối thiểu 90 ngày cho GLACIER
       storage_class   = "GLACIER"
     }
 
     noncurrent_version_expiration {
-      noncurrent_days = 90   # Giảm từ 2555 xuống 90 ngày
+      noncurrent_days = 2555 # Tối thiểu 2555 ngày cho expiration
     }
   }
 }
