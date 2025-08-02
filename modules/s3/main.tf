@@ -1,5 +1,5 @@
 # =============================================================================
-# S3 Module cho Raw Data Storage
+# S3 Module cho Raw Data Storage - Free Tier Optimized
 # =============================================================================
 
 # S3 Bucket cho raw data
@@ -40,27 +40,32 @@ resource "aws_s3_bucket_public_access_block" "raw_data" {
   restrict_public_buckets = true
 }
 
-# Lifecycle configuration
+# Lifecycle configuration - Free Tier Optimized
 resource "aws_s3_bucket_lifecycle_configuration" "raw_data" {
   bucket = aws_s3_bucket.raw_data.id
 
   rule {
-    id     = "transition_to_ia"
+    id     = "aggressive_transition"
     status = "Enabled"
 
     transition {
-      days          = 30
+      days          = 7    # Giảm từ 30 xuống 7 ngày để tiết kiệm
       storage_class = "STANDARD_IA"
     }
 
     transition {
-      days          = 90
+      days          = 30   # Giảm từ 90 xuống 30 ngày
       storage_class = "GLACIER"
     }
 
     transition {
-      days          = 365
+      days          = 90   # Giảm từ 365 xuống 90 ngày
       storage_class = "DEEP_ARCHIVE"
+    }
+
+    # Xóa data sau 180 ngày để tiết kiệm storage
+    expiration {
+      days = 180
     }
   }
 
@@ -69,17 +74,17 @@ resource "aws_s3_bucket_lifecycle_configuration" "raw_data" {
     status = "Enabled"
 
     noncurrent_version_transition {
-      noncurrent_days = 30
+      noncurrent_days = 7    # Giảm từ 30 xuống 7 ngày
       storage_class   = "STANDARD_IA"
     }
 
     noncurrent_version_transition {
-      noncurrent_days = 90
+      noncurrent_days = 30   # Giảm từ 90 xuống 30 ngày
       storage_class   = "GLACIER"
     }
 
     noncurrent_version_expiration {
-      noncurrent_days = 2555
+      noncurrent_days = 90   # Giảm từ 2555 xuống 90 ngày
     }
   }
 }

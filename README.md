@@ -116,16 +116,31 @@ IOT_infra_aws/
 
 ## 💰 Chi Phí Dự Kiến
 
-| Dịch vụ | Chi phí ước tính/tháng |
-|---------|----------------------|
-| IoT Core | $50-200 |
-| Kinesis | $100-500 |
-| S3 | $20-100 |
-| Lambda | $50-200 |
-| DynamoDB | $100-300 |
-| API Gateway | $50-150 |
-| CloudWatch | $30-100 |
-| **Tổng cộng** | **$400-1550** |
+### 🆓 AWS Free Tier (Tháng 1-12)
+| Dịch vụ | Chi phí/tháng | Free Tier Limit |
+|---------|---------------|-----------------|
+| IoT Core | $0 | 250,000 messages |
+| Kinesis | $0 | 2M PUT records |
+| S3 | $0 | 5GB storage |
+| Lambda | $0 | 1M requests |
+| DynamoDB | $0 | 25GB storage |
+| API Gateway | $0 | 1M API calls |
+| CloudWatch | $0 | 5GB logs |
+| **Tổng cộng** | **$0** | **Tiết kiệm $400-1550** |
+
+### 💰 Sau Free Tier (Tháng 13+)
+| Dịch vụ | Chi phí/tháng | Tối ưu |
+|---------|---------------|--------|
+| IoT Core | $10-50 | Batch processing |
+| Kinesis | $20-100 | 1 shard provisioned |
+| S3 | $5-20 | Aggressive lifecycle |
+| Lambda | $10-50 | Memory optimization |
+| DynamoDB | $20-80 | TTL + compression |
+| API Gateway | $10-30 | Caching |
+| CloudWatch | $5-20 | Log filtering |
+| **Tổng cộng** | **$80-350** | **Giảm 80-90%** |
+
+> 📊 **ROI**: Tiết kiệm $4,800-18,600 trong năm đầu tiên với Free Tier!
 
 ## 🔧 Maintenance
 

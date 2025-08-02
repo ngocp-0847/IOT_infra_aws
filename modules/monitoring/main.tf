@@ -1,11 +1,120 @@
 # =============================================================================
-# Monitoring Module với CloudWatch
+# Monitoring Module - Free Tier Optimized
 # =============================================================================
 
-# CloudWatch Dashboard
-resource "aws_cloudwatch_dashboard" "iot_dashboard" {
-  dashboard_name = "${var.project_name}-iot-dashboard-${var.environment}"
+# CloudWatch Alarms cho Free Tier Usage
+resource "aws_cloudwatch_metric_alarm" "free_tier_usage" {
+  alarm_name          = "${var.project_name}-free-tier-usage-${var.environment}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "FreeTierUsage"
+  namespace           = "AWS/Usage"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "80"  # Cảnh báo khi sử dụng 80% Free Tier
+  alarm_description   = "Free Tier usage approaching limit"
+  
+  alarm_actions = [aws_sns_topic.monitoring.arn]
+  
+  tags = var.tags
+}
 
+# CloudWatch Alarm cho Lambda Errors
+resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
+  alarm_name          = "${var.project_name}-lambda-errors-${var.environment}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "Errors"
+  namespace           = "AWS/Lambda"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "5"
+  alarm_description   = "Lambda function errors detected"
+  
+  alarm_actions = [aws_sns_topic.monitoring.arn]
+  
+  tags = var.tags
+}
+
+# CloudWatch Alarm cho DynamoDB Throttling
+resource "aws_cloudwatch_metric_alarm" "dynamodb_throttling" {
+  alarm_name          = "${var.project_name}-dynamodb-throttling-${var.environment}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "ThrottledRequests"
+  namespace           = "AWS/DynamoDB"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "10"
+  alarm_description   = "DynamoDB throttling detected"
+  
+  alarm_actions = [aws_sns_topic.monitoring.arn]
+  
+  tags = var.tags
+}
+
+# CloudWatch Alarm cho Kinesis Errors
+resource "aws_cloudwatch_metric_alarm" "kinesis_errors" {
+  alarm_name          = "${var.project_name}-kinesis-errors-${var.environment}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "GetRecords.IteratorAgeMilliseconds"
+  namespace           = "AWS/Kinesis"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "300000"  # 5 phút
+  alarm_description   = "Kinesis consumer lag detected"
+  
+  alarm_actions = [aws_sns_topic.monitoring.arn]
+  
+  tags = var.tags
+}
+
+# SNS Topic cho monitoring alerts
+resource "aws_sns_topic" "monitoring" {
+  name = "${var.project_name}-monitoring-${var.environment}"
+  
+  tags = var.tags
+}
+
+# SNS Topic Subscription (email)
+resource "aws_sns_topic_subscription" "email" {
+  count     = var.enable_email_alerts ? 1 : 0
+  topic_arn = aws_sns_topic.monitoring.arn
+  protocol  = "email"
+  endpoint  = var.alert_email
+}
+
+# AWS Budgets để track chi phí
+resource "aws_budgets_budget" "cost" {
+  name              = "${var.project_name}-cost-budget-${var.environment}"
+  budget_type       = "COST"
+  limit_amount      = "10"  # $10/tháng cho Free Tier
+  limit_unit        = "USD"
+  time_period_start = "2024-01-01_00:00:00"
+  time_unit         = "MONTHLY"
+  
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 80
+    threshold_type            = "PERCENTAGE"
+    notification_type         = "ACTUAL"
+    subscriber_email_addresses = var.enable_email_alerts ? [var.alert_email] : []
+  }
+  
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type            = "PERCENTAGE"
+    notification_type         = "ACTUAL"
+    subscriber_email_addresses = var.enable_email_alerts ? [var.alert_email] : []
+  }
+}
+
+# CloudWatch Dashboard cho monitoring
+resource "aws_cloudwatch_dashboard" "main" {
+  dashboard_name = "${var.project_name}-dashboard-${var.environment}"
+  
   dashboard_body = jsonencode({
     widgets = [
       {
@@ -16,14 +125,14 @@ resource "aws_cloudwatch_dashboard" "iot_dashboard" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/Kinesis", "GetRecords.Success", "StreamName", var.kinesis_stream_name],
-            [".", "PutRecord.Success", ".", "."],
-            [".", "PutRecords.Success", ".", "."]
+            ["AWS/Lambda", "Invocations", "FunctionName", "${var.lambda_function_name}"],
+            [".", "Errors", ".", "."],
+            [".", "Duration", ".", "."]
           ]
           period = 300
           stat   = "Sum"
-          region = data.aws_region.current.name
-          title  = "Kinesis Stream Metrics"
+          region = var.aws_region
+          title  = "Lambda Performance"
         }
       },
       {
@@ -34,13 +143,13 @@ resource "aws_cloudwatch_dashboard" "iot_dashboard" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", var.dynamodb_table_name],
+            ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${var.dynamodb_table_name}"],
             [".", "ConsumedWriteCapacityUnits", ".", "."]
           ]
           period = 300
           stat   = "Sum"
-          region = data.aws_region.current.name
-          title  = "DynamoDB Metrics"
+          region = var.aws_region
+          title  = "DynamoDB Usage"
         }
       },
       {
@@ -51,14 +160,13 @@ resource "aws_cloudwatch_dashboard" "iot_dashboard" {
         height = 6
         properties = {
           metrics = [
-            for func_name in var.lambda_function_names : [
-              "AWS/Lambda", "Invocations", "FunctionName", func_name
-            ]
+            ["AWS/Kinesis", "GetRecords.Records", "StreamName", "${var.kinesis_stream_name}"],
+            [".", "PutRecord.Records", ".", "."]
           ]
           period = 300
           stat   = "Sum"
-          region = data.aws_region.current.name
-          title  = "Lambda Invocations"
+          region = var.aws_region
+          title  = "Kinesis Data Flow"
         }
       },
       {
@@ -69,99 +177,15 @@ resource "aws_cloudwatch_dashboard" "iot_dashboard" {
         height = 6
         properties = {
           metrics = [
-            for func_name in var.lambda_function_names : [
-              "AWS/Lambda", "Duration", "FunctionName", func_name
-            ]
+            ["AWS/IoT", "ConnectCount", "ClientId", "*"],
+            [".", "PublishCount", ".", "."]
           ]
           period = 300
-          stat   = "Average"
-          region = data.aws_region.current.name
-          title  = "Lambda Duration"
+          stat   = "Sum"
+          region = var.aws_region
+          title  = "IoT Core Activity"
         }
       }
     ]
   })
-}
-
-# CloudWatch Alarms
-resource "aws_cloudwatch_metric_alarm" "kinesis_errors" {
-  alarm_name          = "${var.project_name}-kinesis-errors-${var.environment}"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "GetRecords.Failed"
-  namespace           = "AWS/Kinesis"
-  period              = "300"
-  statistic           = "Sum"
-  threshold           = "10"
-  alarm_description   = "Kinesis stream errors"
-  alarm_actions       = [aws_sns_topic.alerts.arn]
-
-  dimensions = {
-    StreamName = var.kinesis_stream_name
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
-  for_each = toset(var.lambda_function_names)
-
-  alarm_name          = "${var.project_name}-lambda-errors-${each.key}-${var.environment}"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "Errors"
-  namespace           = "AWS/Lambda"
-  period              = "300"
-  statistic           = "Sum"
-  threshold           = "5"
-  alarm_description   = "Lambda function errors"
-  alarm_actions       = [aws_sns_topic.alerts.arn]
-
-  dimensions = {
-    FunctionName = each.key
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "dynamodb_errors" {
-  alarm_name          = "${var.project_name}-dynamodb-errors-${var.environment}"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "SystemErrors"
-  namespace           = "AWS/DynamoDB"
-  period              = "300"
-  statistic           = "Sum"
-  threshold           = "5"
-  alarm_description   = "DynamoDB system errors"
-  alarm_actions       = [aws_sns_topic.alerts.arn]
-
-  dimensions = {
-    TableName = var.dynamodb_table_name
-  }
-}
-
-# SNS Topic cho alerts
-resource "aws_sns_topic" "alerts" {
-  name = "${var.project_name}-alerts-${var.environment}"
-
-  tags = var.tags
-}
-
-# SNS Topic Policy
-resource "aws_sns_topic_policy" "alerts" {
-  arn = aws_sns_topic.alerts.arn
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "cloudwatch.amazonaws.com"
-        }
-        Action   = "SNS:Publish"
-        Resource = aws_sns_topic.alerts.arn
-      }
-    ]
-  })
-}
-
-# Data source
-data "aws_region" "current" {} 
+} 

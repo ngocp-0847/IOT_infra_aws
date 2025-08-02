@@ -1,5 +1,5 @@
 # =============================================================================
-# Lambda Module cho IoT Platform
+# Lambda Module cho IoT Platform - Free Tier Optimized
 # =============================================================================
 
 # IAM Role cho Lambda
@@ -73,15 +73,15 @@ resource "aws_iam_role_policy" "lambda_policy" {
   })
 }
 
-# Lambda Function cho Stream Processing
+# Lambda Function cho Stream Processing - Free Tier Optimized
 resource "aws_lambda_function" "stream_processor" {
   filename         = data.archive_file.stream_processor.output_path
   function_name    = "${var.project_name}-stream-processor-${var.environment}"
   role            = aws_iam_role.lambda_role.arn
   handler         = "index.handler"
   runtime         = var.runtime
-  timeout         = var.timeout
-  memory_size     = var.memory_size
+  timeout         = 30  # Giảm timeout để tiết kiệm GB-seconds
+  memory_size     = 128  # Giảm memory để tiết kiệm Free Tier GB-seconds
 
   vpc_config {
     subnet_ids         = var.vpc_config.subnet_ids
@@ -98,15 +98,15 @@ resource "aws_lambda_function" "stream_processor" {
   tags = var.tags
 }
 
-# Lambda Function cho Query Handler
+# Lambda Function cho Query Handler - Free Tier Optimized
 resource "aws_lambda_function" "query_handler" {
   filename         = data.archive_file.query_handler.output_path
   function_name    = "${var.project_name}-query-handler-${var.environment}"
   role            = aws_iam_role.lambda_role.arn
   handler         = "index.handler"
   runtime         = var.runtime
-  timeout         = var.timeout
-  memory_size     = var.memory_size
+  timeout         = 30  # Giảm timeout
+  memory_size     = 128  # Giảm memory để tiết kiệm
 
   environment {
     variables = {
@@ -122,20 +122,20 @@ resource "aws_lambda_event_source_mapping" "kinesis_mapping" {
   event_source_arn  = var.kinesis_stream_arn
   function_name     = aws_lambda_function.stream_processor.function_name
   starting_position = "LATEST"
-  batch_size        = 100
+  batch_size        = 100  # Tối ưu batch size cho Free Tier
 }
 
-# CloudWatch Log Groups
+# CloudWatch Log Groups - Free Tier Optimized
 resource "aws_cloudwatch_log_group" "stream_processor" {
   name              = "/aws/lambda/${aws_lambda_function.stream_processor.function_name}"
-  retention_in_days = 7
+  retention_in_days = 3  # Giảm retention để tiết kiệm CloudWatch costs
 
   tags = var.tags
 }
 
 resource "aws_cloudwatch_log_group" "query_handler" {
   name              = "/aws/lambda/${aws_lambda_function.query_handler.function_name}"
-  retention_in_days = 7
+  retention_in_days = 3  # Giảm retention
 
   tags = var.tags
 }

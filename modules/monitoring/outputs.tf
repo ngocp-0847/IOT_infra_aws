@@ -1,14 +1,18 @@
-output "dashboard_name" {
-  description = "Tên CloudWatch dashboard"
-  value       = aws_cloudwatch_dashboard.iot_dashboard.dashboard_name
-}
+# =============================================================================
+# Monitoring Module Outputs
+# =============================================================================
 
 output "sns_topic_arn" {
-  description = "ARN của SNS topic cho alerts"
-  value       = aws_sns_topic.alerts.arn
+  description = "ARN của SNS topic cho monitoring alerts"
+  value       = aws_sns_topic.monitoring.arn
 }
 
-output "sns_topic_name" {
-  description = "Tên SNS topic cho alerts"
-  value       = aws_sns_topic.alerts.name
+output "dashboard_name" {
+  description = "Tên CloudWatch dashboard"
+  value       = aws_cloudwatch_dashboard.main.dashboard_name
+}
+
+output "budget_name" {
+  description = "Tên AWS Budget"
+  value       = aws_budgets_budget.cost.name
 } 
