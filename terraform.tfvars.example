@@ -32,6 +32,10 @@ lambda_memory_size = 512
 # API Gateway Configuration
 api_gateway_name = "iot-data-api"
 
+# Monitoring Configuration
+alert_email = "your-email@example.com"
+enable_email_alerts = true
+
 # Tags chung cho tất cả resources
 tags = {
   Project     = "iot-data-platform"

@@ -108,6 +108,18 @@ variable "api_gateway_name" {
   default     = "iot-query-api"
 }
 
+variable "alert_email" {
+  description = "Email để nhận monitoring alerts"
+  type        = string
+  default     = "bombaytera123@gmail.com"
+}
+
+variable "enable_email_alerts" {
+  description = "Bật email alerts cho monitoring"
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Tags chung cho tất cả resources"
   type        = map(string)

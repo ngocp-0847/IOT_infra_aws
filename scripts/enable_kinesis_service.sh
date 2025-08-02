@@ -1,54 +1,60 @@
 #!/bin/bash
 
-# =============================================================================
-# Enable Kinesis Service for IoT Platform
-# =============================================================================
+# Script để kích hoạt Kinesis Data Streams service
+# Giải quyết lỗi SubscriptionRequiredException
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+echo "🔧 Đang kích hoạt Kinesis Data Streams service..."
 
-# Function to print colored output
-print_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
+# Kiểm tra AWS CLI
+if ! command -v aws &> /dev/null; then
+    echo "❌ AWS CLI chưa được cài đặt. Vui lòng cài đặt AWS CLI trước."
+    exit 1
+fi
 
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
+# Kiểm tra AWS credentials
+if ! aws sts get-caller-identity &> /dev/null; then
+    echo "❌ AWS credentials chưa được cấu hình. Vui lòng chạy 'aws configure' trước."
+    exit 1
+fi
 
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+# Lấy region hiện tại
+REGION=$(aws configure get region)
+if [ -z "$REGION" ]; then
+    echo "❌ AWS region chưa được cấu hình. Vui lòng chạy 'aws configure' và set region."
+    exit 1
+fi
 
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
+echo "📍 Region hiện tại: $REGION"
 
-print_info "Kinesis Service Subscription Required"
-echo "=========================================="
-echo ""
-print_info "The Kinesis service requires a subscription in some AWS regions."
-print_info "Please follow these steps to enable Kinesis:"
-echo ""
-print_info "1. Go to AWS Console: https://console.aws.amazon.com/"
-print_info "2. Navigate to Kinesis Data Streams"
-print_info "3. If prompted, click 'Subscribe' or 'Enable'"
-print_info "4. Wait for the subscription to be activated"
-echo ""
-print_info "Alternative: Try using a different region that has Kinesis enabled by default:"
-print_info "  - us-east-1 (N. Virginia)"
-print_info "  - us-west-2 (Oregon)"
-print_info "  - eu-west-1 (Ireland)"
-echo ""
-print_info "To change region, update your terraform.tfvars:"
-print_info "  aws_region = \"us-east-1\""
-echo ""
-print_info "Then run:"
-print_info "  terraform plan"
-print_info "  terraform apply"
-echo ""
-print_warning "Note: Kinesis is part of AWS Free Tier but may require explicit subscription in some regions." 
+# Kiểm tra xem Kinesis có được hỗ trợ trong region này không
+echo "🔍 Kiểm tra Kinesis support trong region $REGION..."
+
+# Thử tạo một stream test để kích hoạt service
+echo "🚀 Đang tạo test stream để kích hoạt service..."
+
+aws kinesis create-stream \
+    --stream-name "test-activation-stream" \
+    --shard-count 1 \
+    --region $REGION
+
+if [ $? -eq 0 ]; then
+    echo "✅ Kinesis service đã được kích hoạt thành công!"
+    
+    # Xóa test stream
+    echo "🧹 Đang xóa test stream..."
+    aws kinesis delete-stream \
+        --stream-name "test-activation-stream" \
+        --region $REGION
+    
+    echo "✅ Hoàn tất! Bây giờ bạn có thể chạy lại terraform apply."
+else
+    echo "❌ Không thể kích hoạt Kinesis service. Có thể do:"
+    echo "   - Tài khoản AWS chưa được verify"
+    echo "   - Region không hỗ trợ Kinesis"
+    echo "   - Vấn đề với AWS credentials"
+    echo ""
+    echo "💡 Thử các giải pháp sau:"
+    echo "   1. Verify tài khoản AWS email"
+    echo "   2. Đổi sang region khác (us-east-1, us-west-2, eu-west-1)"
+    echo "   3. Kiểm tra lại AWS credentials"
+fi 

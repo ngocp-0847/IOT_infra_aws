@@ -123,5 +123,8 @@ module "monitoring" {
   kinesis_stream_name = module.kinesis.stream_name
   dynamodb_table_name = module.dynamodb.table_name
   lambda_function_name = module.lambda.query_function_name
+  alert_email = var.alert_email
+  enable_email_alerts = var.enable_email_alerts
+  aws_region = var.aws_region
   tags = var.tags
 } 

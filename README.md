@@ -66,6 +66,10 @@ graph TD
 - AWS CLI configured
 - Git
 
+### Cấu Hình AWS Region
+
+Dự án được cấu hình để chạy trên **AWS Region us-east-1 (Virginia)** để tối ưu chi phí và hiệu suất.
+
 ### Các Bước Triển Khai
 
 1. **Clone repository**:
