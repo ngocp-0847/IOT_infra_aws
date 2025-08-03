@@ -255,7 +255,7 @@ get_terraform_outputs() {
     if [ -f "terraform.tfstate" ]; then
         local api_endpoint=$(terraform output -raw api_endpoint 2>/dev/null)
         local iot_endpoint=$(terraform output -raw iot_endpoint 2>/dev/null)
-        local kinesis_stream=$(terraform output -raw kinesis_stream_name 2>/dev/null)
+      
         local dynamodb_table=$(terraform output -raw dynamodb_table_name 2>/dev/null)
         local s3_bucket=$(terraform output -raw s3_bucket_name 2>/dev/null)
         
@@ -268,9 +268,7 @@ get_terraform_outputs() {
             print_success "IoT Endpoint: $IOT_ENDPOINT"
         fi
         
-        if [ ! -z "$kinesis_stream" ]; then
-            print_success "Kinesis Stream: $kinesis_stream"
-        fi
+        
         
         if [ ! -z "$dynamodb_table" ]; then
             print_success "DynamoDB Table: $dynamodb_table"

@@ -83,14 +83,7 @@ get_resource_info() {
                 print_warning "IoT Core endpoint not found"
             fi
             ;;
-        "kinesis")
-            local stream_name=$(terraform output -raw kinesis_stream_name 2>/dev/null)
-            if [ ! -z "$stream_name" ]; then
-                print_success "Kinesis Stream: $stream_name"
-            else
-                print_warning "Kinesis stream not found"
-            fi
-            ;;
+        
         "dynamodb")
             local table_name=$(terraform output -raw dynamodb_table_name 2>/dev/null)
             if [ ! -z "$table_name" ]; then
@@ -145,7 +138,7 @@ get_resource_info() {
             ;;
         *)
             print_error "Unknown resource type: $resource_type"
-            print_info "Available types: api, iot, kinesis, dynamodb, s3, lambda, vpc, monitoring, certificate"
+            print_info "Available types: api, iot, dynamodb, s3, lambda, vpc, monitoring, certificate"
             return 1
             ;;
     esac
@@ -159,13 +152,13 @@ show_usage() {
     echo "  -h, --help              Show this help message"
     echo "  -a, --all               Show all resource information"
     echo "  -r, --resource TYPE     Show specific resource information"
-    echo "                          Types: api, iot, kinesis, dynamodb, s3, lambda, vpc, monitoring, certificate"
+    echo "                          Types: api, iot, dynamodb, s3, lambda, vpc, monitoring, certificate"
     echo ""
     echo "Examples:"
     echo "  $0 -a                   # Show all resources"
     echo "  $0 -r api               # Show API Gateway info"
     echo "  $0 -r iot               # Show IoT Core info"
-    echo "  $0 -r kinesis           # Show Kinesis info"
+  
 }
 
 # Main execution

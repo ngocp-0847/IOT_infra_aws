@@ -48,20 +48,10 @@ variable "private_subnet_cidrs" {
   default     = ["10.0.10.0/24", "10.0.11.0/24"]
 }
 
-variable "kinesis_stream_name" {
-  description = "Tên Kinesis Data Stream"
+variable "sqs_queue_name" {
+  description = "Tên SQS Queue"
   type        = string
-  default     = "iot-data-stream"
-}
-
-variable "kinesis_shard_count" {
-  description = "Số lượng shards cho Kinesis stream"
-  type        = number
-  default     = 2
-  validation {
-    condition     = var.kinesis_shard_count >= 1 && var.kinesis_shard_count <= 100
-    error_message = "Shard count phải từ 1 đến 100."
-  }
+  default     = "iot-data-queue"
 }
 
 variable "dynamodb_table_name" {

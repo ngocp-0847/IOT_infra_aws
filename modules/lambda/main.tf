@@ -39,16 +39,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
         ]
         Resource = "arn:aws:logs:*:*:*"
       },
-      {
-        Effect = "Allow"
-        Action = [
-          "kinesis:GetRecords",
-          "kinesis:GetShardIterator",
-          "kinesis:DescribeStream",
-          "kinesis:ListStreams"
-        ]
-        Resource = var.kinesis_stream_arn
-      },
+
       {
         Effect = "Allow"
         Action = [
@@ -79,6 +70,15 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "ec2:UnassignPrivateIpAddresses"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes"
+        ]
+        Resource = var.sqs_queue_arn
       }
     ]
   })
@@ -128,12 +128,12 @@ resource "aws_lambda_function" "query_handler" {
   tags = var.tags
 }
 
-# Event Source Mapping cho Kinesis
-resource "aws_lambda_event_source_mapping" "kinesis_mapping" {
-  event_source_arn  = var.kinesis_stream_arn
-  function_name     = aws_lambda_function.stream_processor.function_name
-  starting_position = "LATEST"
-  batch_size        = 100  # Tối ưu batch size cho Free Tier
+# Event Source Mapping cho SQS
+resource "aws_lambda_event_source_mapping" "sqs_mapping" {
+  event_source_arn = var.sqs_queue_arn
+  function_name    = aws_lambda_function.stream_processor.function_name
+  batch_size       = 10    # Tối ưu batch size cho SQS
+  maximum_batching_window_in_seconds = 5
 }
 
 # CloudWatch Log Groups - Free Tier Optimized

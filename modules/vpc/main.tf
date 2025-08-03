@@ -161,9 +161,9 @@ resource "aws_vpc_endpoint" "dynamodb" {
   })
 }
 
-resource "aws_vpc_endpoint" "kinesis" {
+resource "aws_vpc_endpoint" "sqs" {
   vpc_id            = aws_vpc.main.id
-  service_name      = "com.amazonaws.${data.aws_region.current.name}.kinesis-streams"
+  service_name      = "com.amazonaws.${data.aws_region.current.name}.sqs"
   vpc_endpoint_type = "Interface"
   subnet_ids        = aws_subnet.private[*].id
 
@@ -172,7 +172,7 @@ resource "aws_vpc_endpoint" "kinesis" {
   private_dns_enabled = true
 
   tags = merge(var.tags, {
-    Name = "${var.project_name}-kinesis-vpce-${var.environment}"
+    Name = "${var.project_name}-sqs-vpce-${var.environment}"
   })
 }
 

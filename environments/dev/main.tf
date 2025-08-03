@@ -28,11 +28,7 @@ module "iot_platform" {
   availability_zones = ["ap-southeast-1a", "ap-southeast-1b"]
   public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
   private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
-  
-  # Kinesis Configuration
-  kinesis_stream_name = "iot-data-stream-dev"
-  kinesis_shard_count = 2
-  
+
   # DynamoDB Configuration
   dynamodb_table_name = "iot-processed-data-dev"
   

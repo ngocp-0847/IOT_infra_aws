@@ -36,17 +36,17 @@ resource "aws_cloudwatch_metric_alarm" "dynamodb_throttling" {
   tags = var.tags
 }
 
-# CloudWatch Alarm cho Kinesis Errors
-resource "aws_cloudwatch_metric_alarm" "kinesis_errors" {
-  alarm_name          = "${var.project_name}-kinesis-errors-${var.environment}"
+# CloudWatch Alarm cho SQS Errors
+resource "aws_cloudwatch_metric_alarm" "sqs_errors" {
+  alarm_name          = "${var.project_name}-sqs-errors-${var.environment}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "1"
-  metric_name         = "GetRecords.IteratorAgeMilliseconds"
-  namespace           = "AWS/Kinesis"
+  metric_name         = "ApproximateAgeOfOldestMessage"
+  namespace           = "AWS/SQS"
   period              = "300"
   statistic           = "Average"
-  threshold           = "300000"  # 5 phút
-  alarm_description   = "Kinesis consumer lag detected"
+  threshold           = "300"  # 5 phút
+  alarm_description   = "SQS message age too high"
   
   alarm_actions = [aws_sns_topic.monitoring.arn]
   
@@ -109,23 +109,7 @@ resource "aws_cloudwatch_dashboard" "main" {
           title  = "DynamoDB Usage"
         }
       },
-      {
-        type   = "metric"
-        x      = 0
-        y      = 6
-        width  = 12
-        height = 6
-        properties = {
-          metrics = [
-            ["AWS/Kinesis", "GetRecords.Records", "StreamName", "${var.kinesis_stream_name}"],
-            [".", "PutRecord.Records", ".", "."]
-          ]
-          period = 300
-          stat   = "Sum"
-          region = var.aws_region
-          title  = "Kinesis Data Flow"
-        }
-      },
+
       {
         type   = "metric"
         x      = 12

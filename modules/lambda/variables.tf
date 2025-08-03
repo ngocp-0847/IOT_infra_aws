@@ -23,8 +23,8 @@ variable "memory_size" {
   type        = number
 }
 
-variable "kinesis_stream_arn" {
-  description = "ARN của Kinesis stream"
+variable "sqs_queue_arn" {
+  description = "ARN của SQS queue"
   type        = string
 }
 

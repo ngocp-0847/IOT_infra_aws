@@ -24,25 +24,25 @@ resource "aws_iot_policy" "iot_policy" {
 }
 
 # IoT Topic Rule
-resource "aws_iot_topic_rule" "kinesis_rule" {
-  name        = "${var.project_name}_kinesis_rule_${var.environment}"
-  description = "Forward IoT messages to Kinesis"
+resource "aws_iot_topic_rule" "sqs_rule" {
+  name        = "${var.project_name}_sqs_rule_${var.environment}"
+  description = "Forward IoT messages to SQS"
   enabled     = true
   sql         = "SELECT * FROM 'iot/data'"
   sql_version = "2016-03-23"
 
-  kinesis {
-    stream_name = var.kinesis_stream_arn
-    partition_key = "$${device_id}"
-    role_arn = aws_iam_role.iot_kinesis_role.arn
+  sqs {
+    queue_url = var.sqs_queue_url
+    role_arn  = aws_iam_role.iot_sqs_role.arn
+    use_base64 = false
   }
 
   tags = var.tags
 }
 
 # IAM Role cho IoT Core
-resource "aws_iam_role" "iot_kinesis_role" {
-  name = "${var.project_name}_iot_kinesis_role_${var.environment}"
+resource "aws_iam_role" "iot_sqs_role" {
+  name = "${var.project_name}_iot_sqs_role_${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -61,9 +61,9 @@ resource "aws_iam_role" "iot_kinesis_role" {
 }
 
 # IAM Policy cho IoT Core
-resource "aws_iam_role_policy" "iot_kinesis_policy" {
-  name = "${var.project_name}_iot_kinesis_policy_${var.environment}"
-  role = aws_iam_role.iot_kinesis_role.id
+resource "aws_iam_role_policy" "iot_sqs_policy" {
+  name = "${var.project_name}_iot_sqs_policy_${var.environment}"
+  role = aws_iam_role.iot_sqs_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -71,9 +71,9 @@ resource "aws_iam_role_policy" "iot_kinesis_policy" {
       {
         Effect = "Allow"
         Action = [
-          "kinesis:PutRecord"
+          "sqs:SendMessage"
         ]
-        Resource = var.kinesis_stream_arn
+        Resource = var.sqs_queue_arn
       }
     ]
   })

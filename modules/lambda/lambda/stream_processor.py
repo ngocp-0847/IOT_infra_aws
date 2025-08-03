@@ -12,7 +12,7 @@ s3_bucket = os.environ['S3_BUCKET']
 
 def lambda_handler(event, context):
     """
-    Lambda function để xử lý dữ liệu từ Kinesis stream
+    Lambda function để xử lý dữ liệu từ SQS queue
     Tính toán giá trị trung bình theo giờ và lưu vào DynamoDB
     """
     
@@ -21,8 +21,8 @@ def lambda_handler(event, context):
     
     for record in event['Records']:
         try:
-            # Decode Kinesis record
-            payload = json.loads(record['kinesis']['data'].decode('utf-8'))
+            # Decode SQS message
+            payload = json.loads(record['body'])
             
             # Extract data
             device_id = payload.get('device_id')

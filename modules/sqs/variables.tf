@@ -1,11 +1,6 @@
-variable "stream_name" {
-  description = "Tên Kinesis Data Stream"
+variable "queue_name" {
+  description = "Tên SQS Queue"
   type        = string
-}
-
-variable "shard_count" {
-  description = "Số lượng shards"
-  type        = number
 }
 
 variable "environment" {

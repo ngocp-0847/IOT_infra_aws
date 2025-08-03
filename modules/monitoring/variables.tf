@@ -40,8 +40,8 @@ variable "dynamodb_table_name" {
   type        = string
 }
 
-variable "kinesis_stream_name" {
-  description = "Tên Kinesis stream để monitor"
+variable "sqs_queue_name" {
+  description = "Tên SQS queue để monitor"
   type        = string
 }
 

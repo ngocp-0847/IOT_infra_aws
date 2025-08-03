@@ -41,13 +41,12 @@ module "s3_storage" {
 }
 
 # =============================================================================
-# Kinesis Data Stream
+# SQS Queue
 # =============================================================================
-module "kinesis" {
-  source = "./modules/kinesis"
+module "sqs" {
+  source = "./modules/sqs"
 
-  stream_name    = var.kinesis_stream_name
-  shard_count    = var.kinesis_shard_count
+  queue_name     = var.sqs_queue_name
   environment    = var.environment
   project_name   = var.project_name
   tags           = var.tags
@@ -76,7 +75,7 @@ module "lambda" {
   runtime          = var.lambda_runtime
   timeout          = var.lambda_timeout
   memory_size      = var.lambda_memory_size
-  kinesis_stream_arn = module.kinesis.stream_arn
+  sqs_queue_arn    = module.sqs.queue_arn
   dynamodb_table_name = module.dynamodb.table_name
   s3_bucket_name   = module.s3_storage.bucket_name
   vpc_config = {
@@ -106,9 +105,10 @@ module "api_gateway" {
 module "iot_core" {
   source = "./modules/iot-core"
 
-  environment  = var.environment
-  project_name = var.project_name
-  kinesis_stream_arn = module.kinesis.stream_arn
+  environment    = var.environment
+  project_name   = var.project_name
+  sqs_queue_url  = module.sqs.queue_url
+  sqs_queue_arn  = module.sqs.queue_arn
   tags = var.tags
 }
 
@@ -120,7 +120,7 @@ module "monitoring" {
 
   environment  = var.environment
   project_name = var.project_name
-  kinesis_stream_name = module.kinesis.stream_name
+  sqs_queue_name = module.sqs.queue_name
   dynamodb_table_name = module.dynamodb.table_name
   lambda_function_name = module.lambda.query_function_name
   alert_email = var.alert_email

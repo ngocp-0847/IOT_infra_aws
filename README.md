@@ -9,7 +9,7 @@ Dự án này triển khai một nền tảng phân tích dữ liệu IoT có kh
 ```mermaid
 graph TD
     A[IoT Devices] --> B[AWS IoT Core]
-    B --> C[Kinesis Data Stream]
+    B --> C[SQS Queue]
     C --> D1[S3 Raw Storage]
     C --> D2[Lambda Stream Processor]
     D2 --> E[DynamoDB Processed Data]
@@ -35,7 +35,7 @@ graph TD
 | Thành phần | Công nghệ | Mục đích |
 |------------|-----------|----------|
 | **IoT Gateway** | AWS IoT Core | Nhận dữ liệu từ thiết bị IoT |
-| **Stream Processing** | Kinesis Data Stream | Thu thập dữ liệu real-time |
+| **Stream Processing** | SQS Queue | Thu thập dữ liệu real-time |
 | **Raw Storage** | Amazon S3 | Lưu trữ dữ liệu thô |
 | **Data Processing** | AWS Lambda | Xử lý stream dữ liệu |
 | **Processed Storage** | DynamoDB | Lưu trữ dữ liệu đã xử lý |
@@ -106,7 +106,7 @@ IOT_infra_aws/
 ├── modules/
 │   ├── vpc/
 │   ├── iot-core/
-│   ├── kinesis/
+
 │   ├── lambda/
 │   ├── dynamodb/
 │   ├── api-gateway/
@@ -124,7 +124,7 @@ IOT_infra_aws/
 | Dịch vụ | Chi phí/tháng | Free Tier Limit |
 |---------|---------------|-----------------|
 | IoT Core | $0 | 250,000 messages |
-| Kinesis | $0 | 2M PUT records |
+| SQS | $0 | 1M requests |
 | S3 | $0 | 5GB storage |
 | Lambda | $0 | 1M requests |
 | DynamoDB | $0 | 25GB storage |
@@ -136,15 +136,18 @@ IOT_infra_aws/
 | Dịch vụ | Chi phí/tháng | Tối ưu |
 |---------|---------------|--------|
 | IoT Core | $10-50 | Batch processing |
-| Kinesis | $20-100 | 1 shard provisioned |
+| SQS | $5-30 | Standard queue |
 | S3 | $5-20 | Aggressive lifecycle |
 | Lambda | $10-50 | Memory optimization |
 | DynamoDB | $20-80 | TTL + compression |
 | API Gateway | $10-30 | Caching |
 | CloudWatch | $5-20 | Log filtering |
-| **Tổng cộng** | **$80-350** | **Giảm 80-90%** |
+| **Tổng cộng** | **$65-280** | **Giảm 80-90%** |
 
 > 📊 **ROI**: Tiết kiệm $4,800-18,600 trong năm đầu tiên với Free Tier!
+
+## Tham khảo:
+- https://www.linkedin.com/pulse/parallel-mqtt-sessions-between-device-aws-iot-core-lukasz-malinowski
 
 ## 🔧 Maintenance
 

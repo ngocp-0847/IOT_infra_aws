@@ -12,10 +12,7 @@ output "iot_endpoint" {
   value       = module.iot_core.iot_endpoint
 }
 
-output "kinesis_stream_name" {
-  description = "Tên Kinesis Data Stream"
-  value       = module.kinesis.stream_name
-}
+
 
 output "dynamodb_table_name" {
   description = "Tên DynamoDB table"

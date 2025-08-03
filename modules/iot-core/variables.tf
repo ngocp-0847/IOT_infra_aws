@@ -8,8 +8,13 @@ variable "project_name" {
   type        = string
 }
 
-variable "kinesis_stream_arn" {
-  description = "ARN của Kinesis stream"
+variable "sqs_queue_url" {
+  description = "URL của SQS queue"
+  type        = string
+}
+
+variable "sqs_queue_arn" {
+  description = "ARN của SQS queue"
   type        = string
 }
 
