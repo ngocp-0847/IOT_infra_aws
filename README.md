@@ -98,64 +98,118 @@ Dự án được cấu hình để chạy trên **AWS Region us-east-1 (Virgini
 
 ```
 IOT_infra_aws/
-├── README.md
-├── main.tf
-├── variables.tf
-├── outputs.tf
-├── versions.tf
-├── modules/
-│   ├── vpc/
-│   ├── iot-core/
-
-│   ├── lambda/
-│   ├── dynamodb/
-│   ├── api-gateway/
-│   └── monitoring/
-├── environments/
-│   ├── dev/
-│   └── prod/
-└── .github/
-    └── workflows/
+├── README.md                           # Tài liệu chính
+├── main.tf                            # Terraform configuration chính
+├── variables.tf                       # Biến cấu hình
+├── outputs.tf                         # Outputs sau triển khai
+├── versions.tf                        # Provider versions
+├── terraform.tfvars.example           # Template cấu hình
+├── start.sh                          # Script khởi động nhanh
+│
+├── modules/                          # Terraform modules
+│   ├── vpc/                          # 🌐 Network Infrastructure
+│   │   ├── main.tf                   #   VPC, Subnets, NAT, IGW
+│   │   ├── variables.tf              #   Network Security Groups
+│   │   └── outputs.tf                #
+│   ├── iot-core/                     # 📡 IoT Device Gateway
+│   │   ├── main.tf                   #   IoT Policies, Topic Rules
+│   │   ├── variables.tf              #   Thing Types, IAM Roles
+│   │   └── outputs.tf                #
+│   ├── sqs/                          # 📨 Message Queue
+│   │   ├── main.tf                   #   SQS Queue + DLQ
+│   │   ├── variables.tf              #   Message Processing
+│   │   └── outputs.tf                #
+│   ├── s3/                           # 🗄️ Raw Data Storage
+│   │   ├── main.tf                   #   S3 Bucket, Lifecycle
+│   │   ├── variables.tf              #   Encryption, Versioning
+│   │   └── outputs.tf                #
+│   ├── lambda/                       # ⚡ Serverless Processing
+│   │   ├── main.tf                   #   Function Deployment
+│   │   ├── variables.tf              #   IAM Policies, VPC Config
+│   │   ├── outputs.tf                #
+│   │   ├── build.sh                  #   Build script
+│   │   ├── deploy-lambda.sh          #   Deploy script
+│   │   ├── Makefile                  #   Build automation
+│   │   └── lambda/                   #   Function source code
+│   │       ├── stream_processor.py   #     📊 Data processing
+│   │       └── query_handler.py      #     🔍 API query handler
+│   ├── dynamodb/                     # 🗃️ Processed Data Store
+│   │   ├── main.tf                   #   NoSQL Tables, Indexes
+│   │   ├── variables.tf              #   TTL, Backup Config
+│   │   └── outputs.tf                #
+│   ├── api-gateway/                  # 🌍 REST API Gateway
+│   │   ├── main.tf                   #   HTTP API, Routes
+│   │   ├── variables.tf              #   CORS, Throttling
+│   │   └── outputs.tf                #
+│   └── monitoring/                   # 📊 Observability
+│       ├── main.tf                   #   CloudWatch Alarms
+│       ├── variables.tf              #   SNS Notifications
+│       └── outputs.tf                #   Metrics & Logs
+│
+├── environments/                     # 🌍 Environment Configs
+│   ├── dev/                          #   Development
+│   │   └── main.tf                   #   Dev-specific settings
+│   └── prod/                         #   Production
+│       └── main.tf                   #   Prod-specific settings
+│
+├── scripts/                          # 🔧 Automation Scripts
+│   └── deploy.sh                     #   Deployment automation
+│
+├── tests/                            # 🧪 Testing & Validation
+│   ├── README_TEST_SCRIPTS.md        #   Test documentation
+│   ├── TEST_GUIDE.md                 #   Testing guide
+│   ├── test_iot_system.sh           #   System tests
+│   ├── generate_sample_data.sh       #   Sample data generator
+│   ├── get_terraform_info.sh         #   Infrastructure info
+│   └── sample_data_*.json            #   Test data files
+│
+├── docs/                             # 📚 Documentation
+│   ├── DEPLOYMENT.md                 #   Deployment guide
+│   ├── TROUBLESHOOTING.md            #   Troubleshooting
+│   ├── FREE_TIER_OPTIMIZATION.md    #   Cost optimization
+│   ├── flow_step.md                  #   System flow
+│   ├── đề-bài.md                    #   Requirements
+│   ├── yêu-cầu-chung.md             #   General requirements
+│   └── chi-phí-free-tier.md         #   Cost analysis
+│
+├── images/                           # 📸 Result Screenshots
+│   ├── Screen Shot 2025-08-03 at 18.05.53.png
+│   ├── Screen Shot 2025-08-03 at 18.06.31.png
+│   ├── Screen Shot 2025-08-03 at 18.06.39.png
+│   └── Screen Shot 2025-08-03 at 18.06.50.png
+│
+├── ARCHITECTURE_CHANGES.md           # 🏗️ Architecture updates
+└── DEPLOYMENT_GUIDE.md               # 🚀 Deployment instructions
 ```
 
-## 💰 Chi Phí Dự Kiến
+### 🔗 Luồng Dữ Liệu
+```
+[IoT Devices] → [IoT Core] → [SQS] → [Lambda] → [DynamoDB]
+                                  ↓
+                              [S3 Raw Data]
+                                  
+[Client] → [API Gateway] → [Lambda] → [DynamoDB] → [Response]
+```
 
-### 🆓 AWS Free Tier (Tháng 1-12)
-| Dịch vụ | Chi phí/tháng | Free Tier Limit |
-|---------|---------------|-----------------|
-| IoT Core | $0 | 250,000 messages |
-| SQS | $0 | 1M requests |
-| S3 | $0 | 5GB storage |
-| Lambda | $0 | 1M requests |
-| DynamoDB | $0 | 25GB storage |
-| API Gateway | $0 | 1M API calls |
-| CloudWatch | $0 | 5GB logs |
-| **Tổng cộng** | **$0** | **Tiết kiệm $400-1550** |
+## 📸 Kết Quả Triển Khai
 
-### 💰 Sau Free Tier (Tháng 13+)
-| Dịch vụ | Chi phí/tháng | Tối ưu |
-|---------|---------------|--------|
-| IoT Core | $10-50 | Batch processing |
-| SQS | $5-30 | Standard queue |
-| S3 | $5-20 | Aggressive lifecycle |
-| Lambda | $10-50 | Memory optimization |
-| DynamoDB | $20-80 | TTL + compression |
-| API Gateway | $10-30 | Caching |
-| CloudWatch | $5-20 | Log filtering |
-| **Tổng cộng** | **$65-280** | **Giảm 80-90%** |
+Dưới đây là các hình ảnh minh họa kết quả sau khi triển khai thành công hệ thống IoT trên AWS:
 
-> 📊 **ROI**: Tiết kiệm $4,800-18,600 trong năm đầu tiên với Free Tier!
+![1](./images/Screen%20Shot%202025-08-03%20at%2018.05.53.png)
 
-## Tham khảo:
-- https://www.linkedin.com/pulse/parallel-mqtt-sessions-between-device-aws-iot-core-lukasz-malinowski
+![2](./images/Screen%20Shot%202025-08-03%20at%2018.06.31.png)
 
-## 🔧 Maintenance
+![3](./images/Screen%20Shot%202025-08-03%20at%2018.06.39.png)
 
-- **Backup**: Tự động backup dữ liệu
-- **Updates**: Cập nhật security patches
-- **Scaling**: Tự động scale theo tải
-- **Monitoring**: 24/7 monitoring
+![4](./images/Screen%20Shot%202025-08-03%20at%2018.06.50.png)
 
-## 📞 Support
+### 🎯 Tính Năng Đã Triển Khai
 
-Để hỗ trợ kỹ thuật, vui lòng tạo issue trong repository hoặc liên hệ team DevOps. 
+✅ **IoT Data Ingestion**: Nhận dữ liệu từ thiết bị IoT qua MQTT  
+✅ **Real-time Processing**: Xử lý stream data với Lambda  
+✅ **Data Storage**: Lưu trữ raw data (S3) và processed data (DynamoDB)  
+✅ **REST API**: Query API thông qua API Gateway  
+✅ **Monitoring**: CloudWatch alarms và notifications  
+✅ **Security**: VPC, IAM roles và encryption  
+✅ **Cost Optimization**: Free Tier configuration  
+

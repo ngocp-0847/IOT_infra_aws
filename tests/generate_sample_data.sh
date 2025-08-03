@@ -472,7 +472,7 @@ push_iot_data() {
     local temp_file=$(mktemp)
     echo "$data" > "$temp_file"
     
-    # Try to publish with file method first
+    # Publish data using file method
     if aws iot-data publish \
         --endpoint-url "https://$IOT_ENDPOINT" \
         --topic "$topic" \
@@ -484,27 +484,12 @@ push_iot_data() {
         return 0
     else
         local exit_code=$?
-        print_warning "Failed to publish with file method, trying direct payload..."
-        
-        # Try with direct payload as fallback
-        if aws iot-data publish \
-            --endpoint-url "https://$IOT_ENDPOINT" \
-            --topic "$topic" \
-            --payload "$data" \
-            --region $AWS_REGION 2>&1 | tee -a "$LOG_FILE"; then
-            
-            print_debug "Published data for $device_id to topic $topic (direct payload method)"
-            rm -f "$temp_file"
-            return 0
-        else
-            local exit_code=$?
-            print_error "Failed to publish data for $device_id (exit code: $exit_code)"
-            print_error "Topic: $topic"
-            print_error "Endpoint: $IOT_ENDPOINT"
-            print_error "Data sample: $(echo "$data" | head -c 100)..."
-            rm -f "$temp_file"
-            return 1
-        fi
+        print_error "Failed to publish data for $device_id (exit code: $exit_code)"
+        print_error "Topic: $topic"
+        print_error "Endpoint: $IOT_ENDPOINT"
+        print_error "Data sample: $(echo "$data" | head -c 100)..."
+        rm -f "$temp_file"
+        return 1
     fi
 }
 

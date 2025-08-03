@@ -89,10 +89,13 @@ resource "aws_lambda_function" "stream_processor" {
   filename         = data.archive_file.stream_processor.output_path
   function_name    = "${var.project_name}-stream-processor-${var.environment}"
   role            = aws_iam_role.lambda_role.arn
-  handler         = "index.handler"
+  handler         = "stream_processor.handler"
   runtime         = var.runtime
   timeout         = 30  # Giảm timeout để tiết kiệm GB-seconds
   memory_size     = 128  # Giảm memory để tiết kiệm Free Tier GB-seconds
+  
+  # Hash của source code để Terraform detect thay đổi
+  source_code_hash = data.archive_file.stream_processor.output_base64sha256
 
   vpc_config {
     subnet_ids         = var.vpc_config.subnet_ids
@@ -114,10 +117,13 @@ resource "aws_lambda_function" "query_handler" {
   filename         = data.archive_file.query_handler.output_path
   function_name    = "${var.project_name}-query-handler-${var.environment}"
   role            = aws_iam_role.lambda_role.arn
-  handler         = "index.handler"
+  handler         = "query_handler.handler"
   runtime         = var.runtime
   timeout         = 30  # Giảm timeout
   memory_size     = 128  # Giảm memory để tiết kiệm
+  
+  # Hash của source code để Terraform detect thay đổi
+  source_code_hash = data.archive_file.query_handler.output_base64sha256
 
   environment {
     variables = {
@@ -157,7 +163,7 @@ data "archive_file" "stream_processor" {
   output_path = "${path.module}/stream_processor.zip"
   source {
     content = file("${path.module}/lambda/stream_processor.py")
-    filename = "index.py"
+    filename = "stream_processor.py"
   }
 }
 
@@ -166,6 +172,6 @@ data "archive_file" "query_handler" {
   output_path = "${path.module}/query_handler.zip"
   source {
     content = file("${path.module}/lambda/query_handler.py")
-    filename = "index.py"
+    filename = "query_handler.py"
   }
 } 

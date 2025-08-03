@@ -28,7 +28,7 @@ resource "aws_iot_topic_rule" "sqs_rule" {
   name        = "${var.project_name}_sqs_rule_${var.environment}"
   description = "Forward IoT messages to SQS"
   enabled     = true
-  sql         = "SELECT * FROM 'iot/data'"
+  sql         = "SELECT * FROM \"iot/data\""
   sql_version = "2016-03-23"
 
   sqs {

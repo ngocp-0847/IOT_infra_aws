@@ -64,4 +64,4 @@ resource "aws_iam_policy" "sqs_policy" {
       }
     ]
   })
-} 
+}

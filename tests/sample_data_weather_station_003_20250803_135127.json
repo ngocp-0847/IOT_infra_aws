@@ -1,0 +1,14 @@
+{
+    "device_id": "weather_station_003",
+    "device_type": "weather_station",
+    "timestamp": "2025-08-03T06:51:27Z",
+    "temperature": -7.0,
+    "humidity": 34,
+    "pressure": 1003.0,
+    "wind_speed": 2.0,
+    "rainfall": 0,
+    "location": {
+        "latitude": 10.000000,
+        "longitude": 106.000000
+    }
+}

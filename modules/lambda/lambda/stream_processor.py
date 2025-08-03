@@ -50,13 +50,16 @@ def handler(event, context):
                     SET 
                         avg_temperature = if_not_exists(avg_temperature, :temp),
                         avg_humidity = if_not_exists(avg_humidity, :humidity),
-                        count = if_not_exists(count, :zero),
+                        #cnt = if_not_exists(#cnt, :zero),
                         min_temperature = if_not_exists(min_temperature, :temp),
                         max_temperature = if_not_exists(max_temperature, :temp),
                         min_humidity = if_not_exists(min_humidity, :humidity),
                         max_humidity = if_not_exists(max_humidity, :humidity),
                         last_updated = :now
                 """,
+                ExpressionAttributeNames={
+                    '#cnt': 'count'
+                },
                 ExpressionAttributeValues={
                     ':temp': Decimal(str(temperature)),
                     ':humidity': Decimal(str(humidity)),
@@ -87,12 +90,15 @@ def handler(event, context):
                     SET 
                         avg_temperature = :avg_temp,
                         avg_humidity = :avg_humidity,
-                        count = :count,
+                        #cnt = :count,
                         min_temperature = :min_temp,
                         max_temperature = :max_temp,
                         min_humidity = :min_humidity,
                         max_humidity = :max_humidity
                 """,
+                ExpressionAttributeNames={
+                    '#cnt': 'count'
+                },
                 ExpressionAttributeValues={
                     ':avg_temp': avg_temp,
                     ':avg_humidity': avg_humidity,
