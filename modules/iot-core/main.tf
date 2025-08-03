@@ -28,7 +28,24 @@ resource "aws_iot_topic_rule" "sqs_rule" {
   name        = "${var.project_name}_sqs_rule_${var.environment}"
   description = "Forward IoT messages to SQS"
   enabled     = true
-  sql         = "SELECT * FROM \"iot/data\""
+  sql         = "SELECT * FROM \"iot/data/#\""
+  sql_version = "2016-03-23"
+
+  sqs {
+    queue_url = var.sqs_queue_url
+    role_arn  = aws_iam_role.iot_sqs_role.arn
+    use_base64 = false
+  }
+
+  tags = var.tags
+}
+
+# IoT Topic Rule cho real-time data
+resource "aws_iot_topic_rule" "realtime_rule" {
+  name        = "${var.project_name}_realtime_rule_${var.environment}"
+  description = "Forward real-time IoT messages to SQS"
+  enabled     = true
+  sql         = "SELECT * FROM \"iot/realtime\""
   sql_version = "2016-03-23"
 
   sqs {

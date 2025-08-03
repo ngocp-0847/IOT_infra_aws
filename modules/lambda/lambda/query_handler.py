@@ -23,10 +23,23 @@ def handler(event, context):
     logger.info(f"Event: {json.dumps(event, default=str)}")
     
     try:
-        # Parse request
-        http_method = event.get('httpMethod', 'GET')
-        path = event.get('path', '')
-        query_params = event.get('queryStringParameters', {}) or {}
+        # Parse request - support both API Gateway V1 and V2 formats
+        # API Gateway V2 format
+        if 'requestContext' in event and 'http' in event['requestContext']:
+            http_method = event['requestContext']['http']['method']
+            path = event['requestContext']['http']['path']
+            query_params = event.get('queryStringParameters', {}) or {}
+            
+            # Strip stage name from path for API Gateway V2
+            stage = event['requestContext'].get('stage', '')
+            if stage and path.startswith(f'/{stage}'):
+                path = path[len(f'/{stage}'):]
+                
+        # API Gateway V1 format (fallback)
+        else:
+            http_method = event.get('httpMethod', 'GET')
+            path = event.get('path', '')
+            query_params = event.get('queryStringParameters', {}) or {}
         
         logger.info(f"Processing request - Method: {http_method}, Path: {path}, Query params: {query_params}")
         
@@ -137,12 +150,17 @@ def get_device_data(device_id, headers, query_params):
         key_condition_expression = 'device_id = :device_id'
         expression_attribute_values = {':device_id': device_id}
         
-        if start_time:
+        # For DynamoDB composite key, we can only use one range condition
+        if start_time and end_time:
+            key_condition_expression += ' AND timestamp_hour BETWEEN :start_time AND :end_time'
+            expression_attribute_values[':start_time'] = start_time
+            expression_attribute_values[':end_time'] = end_time
+            logger.info(f"Added time range filter: {start_time} to {end_time}")
+        elif start_time:
             key_condition_expression += ' AND timestamp_hour >= :start_time'
             expression_attribute_values[':start_time'] = start_time
             logger.info(f"Added start_time filter: {start_time}")
-            
-        if end_time:
+        elif end_time:
             key_condition_expression += ' AND timestamp_hour <= :end_time'
             expression_attribute_values[':end_time'] = end_time
             logger.info(f"Added end_time filter: {end_time}")

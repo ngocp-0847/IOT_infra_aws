@@ -195,13 +195,25 @@ IOT_infra_aws/
 
 Dưới đây là các hình ảnh minh họa kết quả sau khi triển khai thành công hệ thống IoT trên AWS:
 
+Thực hiện push event dựa trên MQTT test client, hoặc script push ./tests/test_iot_system.sh
+
 ![1](./images/Screen%20Shot%202025-08-03%20at%2018.05.53.png)
+
+Event thống kê bằng cloudwatch metrics.
 
 ![2](./images/Screen%20Shot%202025-08-03%20at%2018.06.31.png)
 
-![3](./images/Screen%20Shot%202025-08-03%20at%2018.06.39.png)
+Data đã được lưu trữ trong dynamodb.
+
+![3](./images/Screen%20Shot%202025-08-03%20at%2021.15.41.png)
+
 
 ![4](./images/Screen%20Shot%202025-08-03%20at%2018.06.50.png)
+
+Kết quả query data bằng curl qua API Gateway.
+  
+![5](./images/Screen%20Shot%202025-08-03%20at%2021.34.55.png)
+
 
 ### 🎯 Tính Năng Đã Triển Khai
 

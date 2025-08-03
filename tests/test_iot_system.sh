@@ -339,6 +339,30 @@ push_iot_data() {
         return 1
     fi
     
+    # Test IoT permissions first
+    print_status "Testing IoT permissions..."
+    local test_topic="iot/test"
+    local test_data='{"test": "message", "timestamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"}'
+    local temp_test_file=$(mktemp)
+    echo "$test_data" > "$temp_test_file"
+    
+    local test_output=$(aws iot-data publish \
+        --endpoint-url "https://$IOT_ENDPOINT" \
+        --topic "$test_topic" \
+        --cli-binary-format raw-in-base64-out \
+        --payload "file://$temp_test_file" \
+        --region $AWS_REGION 2>&1)
+    
+    rm -f "$temp_test_file"
+    
+    if [ $? -ne 0 ]; then
+        print_error "IoT permissions test failed: $test_output"
+        print_status "Please ensure your AWS credentials have IoT publish permissions"
+        return 1
+    else
+        print_success "IoT permissions test passed"
+    fi
+    
     local total_devices=0
     local total_messages=0
     
@@ -395,17 +419,26 @@ push_iot_data() {
             # Publish to IoT topic
             local topic="iot/data/$device_type"
             
-            if aws iot-data publish \
+            # Create a temporary file for the payload
+            local temp_file=$(mktemp)
+            echo "$data" > "$temp_file"
+            
+            local publish_output=$(aws iot-data publish \
                 --endpoint-url "https://$IOT_ENDPOINT" \
                 --topic "$topic" \
-                --payload "$data" \
-                --region $AWS_REGION &> /dev/null; then
-                
+                --cli-binary-format raw-in-base64-out \
+                --payload "file://$temp_file" \
+                --region $AWS_REGION 2>&1)
+            
+            if [ $? -eq 0 ]; then
                 print_debug "Published data for $device_id to topic $topic"
                 ((total_messages++))
             else
-                print_error "Failed to publish data for $device_id"
+                print_error "Failed to publish data for $device_id: $publish_output"
             fi
+            
+            # Clean up temporary file
+            rm -f "$temp_file"
             
             # Small delay to avoid overwhelming the system
             sleep 0.1
@@ -446,15 +479,22 @@ simulate_realtime_events() {
         local data=$(generate_sensor_data "$device_type" "$device_id" "$timestamp")
         
         # Publish to real-time topic
+        local temp_file=$(mktemp)
+        echo "$data" > "$temp_file"
+        
         if aws iot-data publish \
             --endpoint-url "https://$IOT_ENDPOINT" \
             --topic "iot/realtime" \
-            --payload "$data" \
-            --region $AWS_REGION &> /dev/null; then
+            --cli-binary-format raw-in-base64-out \
+            --payload "file://$temp_file" \
+            --region $AWS_REGION 2>/dev/null; then
             
             print_debug "Real-time event: $device_id at $timestamp"
             ((event_count++))
         fi
+        
+        # Clean up temporary file
+        rm -f "$temp_file"
         
         sleep $interval
     done
