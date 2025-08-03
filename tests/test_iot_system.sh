@@ -119,27 +119,34 @@ get_api_url() {
     local api_url=""
     
     # Method 1: Try to get from Terraform output first
-    api_url=$(terraform output -raw api_gateway_url 2>/dev/null | sed 's/https:\/\///')
+    if command -v terraform &> /dev/null; then
+        api_url=$(terraform output -raw api_endpoint 2>/dev/null | sed 's/https:\/\///')
+        if [ -n "$api_url" ] && [ "$api_url" != "None" ]; then
+            API_BASE_URL="https://$api_url"
+            print_success "API URL from Terraform: $API_BASE_URL"
+            return 0
+        fi
+    fi
     
     # Method 2: Try to get from AWS CLI with specific name
-    if [ -z "$api_url" ] || [ "$api_url" = "None" ]; then
-        api_url=$(aws apigatewayv2 get-apis --region $AWS_REGION --query 'Items[?Name==`iot-data-api`].ApiEndpoint' --output text 2>/dev/null)
+    api_url=$(aws apigatewayv2 get-apis --region $AWS_REGION --query 'Items[?Name==`iot-data-api`].ApiEndpoint' --output text 2>/dev/null)
+    if [ -n "$api_url" ] && [ "$api_url" != "None" ]; then
+        API_BASE_URL="https://$api_url"
+        print_success "API URL from AWS CLI: $API_BASE_URL"
+        return 0
     fi
     
     # Method 3: Try to get any API Gateway in the region
-    if [ -z "$api_url" ] || [ "$api_url" = "None" ]; then
-        api_url=$(aws apigatewayv2 get-apis --region $AWS_REGION --query 'Items[0].ApiEndpoint' --output text 2>/dev/null)
+    api_url=$(aws apigatewayv2 get-apis --region $AWS_REGION --query 'Items[0].ApiEndpoint' --output text 2>/dev/null)
+    if [ -n "$api_url" ] && [ "$api_url" != "None" ]; then
+        API_BASE_URL="https://$api_url"
+        print_success "API URL from AWS CLI (first API): $API_BASE_URL"
+        return 0
     fi
     
-    if [ -z "$api_url" ]; then
-        print_warning "Could not get API URL automatically. Please set API_BASE_URL manually."
-        print_status "You can find the API URL in AWS Console or Terraform output"
-        return 1
-    fi
-    
-    API_BASE_URL="https://$api_url"
-    print_success "API URL: $API_BASE_URL"
-    return 0
+    print_warning "Could not get API URL automatically. Please set API_BASE_URL manually."
+    print_status "You can find the API URL in AWS Console or Terraform output"
+    return 1
 }
 
 # Function to get IoT Endpoint
@@ -148,13 +155,14 @@ get_iot_endpoint() {
     
     IOT_ENDPOINT=$(aws iot describe-endpoint --endpoint-type iot:Data-ATS --region $AWS_REGION --query 'endpointAddress' --output text 2>/dev/null)
     
-    if [ -z "$IOT_ENDPOINT" ]; then
+    if [ -n "$IOT_ENDPOINT" ] && [ "$IOT_ENDPOINT" != "None" ]; then
+        print_success "IoT Endpoint: $IOT_ENDPOINT"
+        return 0
+    else
         print_warning "Could not get IoT endpoint automatically. Please set IOT_ENDPOINT manually."
+        print_status "You can find the IoT endpoint in AWS Console or run: aws iot describe-endpoint --endpoint-type iot:Data-ATS"
         return 1
     fi
-    
-    print_success "IoT Endpoint: $IOT_ENDPOINT"
-    return 0
 }
 
 # Function to generate realistic sensor data
@@ -465,7 +473,7 @@ test_health_check() {
     
     local response=$(curl -s -w "\n%{http_code}" "$API_BASE_URL/health")
     local http_code=$(echo "$response" | tail -n1)
-    local body=$(echo "$response" | head -n -1)
+    local body=$(echo "$response" | sed '$d')
     
     if [ "$http_code" = "200" ]; then
         print_success "Health check passed"
@@ -489,7 +497,7 @@ test_get_devices() {
     
     local response=$(curl -s -w "\n%{http_code}" "$API_BASE_URL/devices")
     local http_code=$(echo "$response" | tail -n1)
-    local body=$(echo "$response" | head -n -1)
+    local body=$(echo "$response" | sed '$d')
     
     if [ "$http_code" = "200" ]; then
         print_success "Get devices endpoint working"
@@ -529,7 +537,7 @@ test_get_device_data() {
     
     local response=$(curl -s -w "\n%{http_code}" "$API_BASE_URL/devices/$device_id")
     local http_code=$(echo "$response" | tail -n1)
-    local body=$(echo "$response" | head -n -1)
+    local body=$(echo "$response" | sed '$d')
     
     if [ "$http_code" = "200" ]; then
         print_success "Get device data endpoint working for $device_id"
@@ -572,7 +580,7 @@ test_get_device_data_with_time() {
     local url="$API_BASE_URL/devices/$device_id?start_time=$start_time&end_time=$end_time"
     local response=$(curl -s -w "\n%{http_code}" "$url")
     local http_code=$(echo "$response" | tail -n1)
-    local body=$(echo "$response" | head -n -1)
+    local body=$(echo "$response" | sed '$d')
     
     if [ "$http_code" = "200" ]; then
         print_success "Get device data with time range working for $device_id"
@@ -612,7 +620,7 @@ test_device_statistics() {
     
     local response=$(curl -s -w "\n%{http_code}" "$API_BASE_URL/devices/$device_id/stats")
     local http_code=$(echo "$response" | tail -n1)
-    local body=$(echo "$response" | head -n -1)
+    local body=$(echo "$response" | sed '$d')
     
     if [ "$http_code" = "200" ]; then
         print_success "Device statistics working for $device_id"
@@ -635,7 +643,7 @@ test_system_metrics() {
     
     local response=$(curl -s -w "\n%{http_code}" "$API_BASE_URL/metrics")
     local http_code=$(echo "$response" | tail -n1)
-    local body=$(echo "$response" | head -n -1)
+    local body=$(echo "$response" | sed '$d')
     
     if [ "$http_code" = "200" ]; then
         print_success "System metrics endpoint working"
@@ -695,87 +703,125 @@ run_tests() {
     validate_aws_credentials
     
     # Get endpoints
-    get_api_url
-    get_iot_endpoint
+    local api_url_ok=false
+    local iot_endpoint_ok=false
+    
+    if get_api_url; then
+        api_url_ok=true
+    fi
+    
+    if get_iot_endpoint; then
+        iot_endpoint_ok=true
+    fi
+    
+    # Check if we have minimum required endpoints
+    if [ "$api_url_ok" = false ] && [ "$iot_endpoint_ok" = false ]; then
+        print_error "Neither API URL nor IoT endpoint could be obtained automatically."
+        print_status "Please set them manually using -u and -i options"
+        print_status "Example: $0 -u https://your-api.execute-api.us-east-1.amazonaws.com -i your-iot-endpoint.iot.us-east-1.amazonaws.com"
+        exit 1
+    fi
     
     local test_results=()
     
-    # Test 1: Health check
-    echo ""
-    print_status "Test 1: Health Check"
-    if test_health_check; then
-        test_results+=("health_check: PASS")
+    # Test 1: Health check (only if API URL is available)
+    if [ "$api_url_ok" = true ]; then
+        echo ""
+        print_status "Test 1: Health Check"
+        if test_health_check; then
+            test_results+=("health_check: PASS")
+        else
+            test_results+=("health_check: FAIL")
+        fi
     else
-        test_results+=("health_check: FAIL")
+        print_warning "Skipping health check - API URL not available"
+        test_results+=("health_check: SKIP")
     fi
     
-    # Test 2: Push IoT data
-    echo ""
-    print_status "Test 2: Push IoT Data"
-    if push_iot_data; then
-        test_results+=("data_push: PASS")
+    # Test 2: Push IoT data (only if IoT endpoint is available)
+    if [ "$iot_endpoint_ok" = true ]; then
+        echo ""
+        print_status "Test 2: Push IoT Data"
+        if push_iot_data; then
+            test_results+=("data_push: PASS")
+        else
+            test_results+=("data_push: FAIL")
+        fi
+        
+        # Test 3: Real-time events simulation
+        echo ""
+        print_status "Test 3: Real-time Events Simulation"
+        if simulate_realtime_events; then
+            test_results+=("realtime_events: PASS")
+        else
+            test_results+=("realtime_events: FAIL")
+        fi
     else
-        test_results+=("data_push: FAIL")
+        print_warning "Skipping IoT data tests - IoT endpoint not available"
+        test_results+=("data_push: SKIP")
+        test_results+=("realtime_events: SKIP")
     fi
     
-    # Test 3: Real-time events simulation
-    echo ""
-    print_status "Test 3: Real-time Events Simulation"
-    if simulate_realtime_events; then
-        test_results+=("realtime_events: PASS")
-    else
-        test_results+=("realtime_events: FAIL")
+    # Wait for data processing (only if we pushed data)
+    if [ "$iot_endpoint_ok" = true ]; then
+        echo ""
+        print_status "Waiting for data processing (45 seconds)..."
+        sleep 45
     fi
     
-    # Wait for data processing
-    echo ""
-    print_status "Waiting for data processing (45 seconds)..."
-    sleep 45
-    
-    # Test 4: Get devices
-    echo ""
-    print_status "Test 4: Get Devices"
-    if test_get_devices; then
-        test_results+=("get_devices: PASS")
+    # Test 4: Get devices (only if API URL is available)
+    if [ "$api_url_ok" = true ]; then
+        echo ""
+        print_status "Test 4: Get Devices"
+        if test_get_devices; then
+            test_results+=("get_devices: PASS")
+        else
+            test_results+=("get_devices: FAIL")
+        fi
+        
+        # Test 5: Get device data
+        echo ""
+        print_status "Test 5: Get Device Data"
+        if test_get_device_data "temp_sensor_001"; then
+            test_results+=("get_device_data: PASS")
+        else
+            test_results+=("get_device_data: FAIL")
+        fi
+        
+        # Test 6: Get device data with time range
+        echo ""
+        print_status "Test 6: Get Device Data with Time Range"
+        local start_time_range=$(date -u -v-12H +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
+        local end_time_range=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        if test_get_device_data_with_time "temp_sensor_001" "$start_time_range" "$end_time_range"; then
+            test_results+=("get_device_data_time: PASS")
+        else
+            test_results+=("get_device_data_time: FAIL")
+        fi
+        
+        # Test 7: Device statistics
+        echo ""
+        print_status "Test 7: Device Statistics"
+        if test_device_statistics "temp_sensor_001"; then
+            test_results+=("device_statistics: PASS")
+        else
+            test_results+=("device_statistics: SKIP")
+        fi
+        
+        # Test 8: System metrics
+        echo ""
+        print_status "Test 8: System Metrics"
+        if test_system_metrics; then
+            test_results+=("system_metrics: PASS")
+        else
+            test_results+=("system_metrics: SKIP")
+        fi
     else
-        test_results+=("get_devices: FAIL")
-    fi
-    
-    # Test 5: Get device data
-    echo ""
-    print_status "Test 5: Get Device Data"
-    if test_get_device_data "temp_sensor_001"; then
-        test_results+=("get_device_data: PASS")
-    else
-        test_results+=("get_device_data: FAIL")
-    fi
-    
-    # Test 6: Get device data with time range
-    echo ""
-    print_status "Test 6: Get Device Data with Time Range"
-    local start_time_range=$(date -u -v-12H +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
-    local end_time_range=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    if test_get_device_data_with_time "temp_sensor_001" "$start_time_range" "$end_time_range"; then
-        test_results+=("get_device_data_time: PASS")
-    else
-        test_results+=("get_device_data_time: FAIL")
-    fi
-    
-    # Test 7: Device statistics
-    echo ""
-    print_status "Test 7: Device Statistics"
-    if test_device_statistics "temp_sensor_001"; then
-        test_results+=("device_statistics: PASS")
-    else
+        print_warning "Skipping API tests - API URL not available"
+        test_results+=("get_devices: SKIP")
+        test_results+=("get_device_data: SKIP")
+        test_results+=("get_device_data_time: SKIP")
         test_results+=("device_statistics: SKIP")
-    fi
-    
-    # Test 8: System metrics
-    echo ""
-    print_status "Test 8: System Metrics"
-    if test_system_metrics; then
-        test_results+=("system_metrics: PASS")
-    else
         test_results+=("system_metrics: SKIP")
     fi
     

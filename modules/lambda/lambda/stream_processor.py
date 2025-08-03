@@ -10,7 +10,7 @@ s3 = boto3.client('s3')
 table = dynamodb.Table(os.environ['DYNAMODB_TABLE'])
 s3_bucket = os.environ['S3_BUCKET']
 
-def lambda_handler(event, context):
+def handler(event, context):
     """
     Lambda function để xử lý dữ liệu từ SQS queue
     Tính toán giá trị trung bình theo giờ và lưu vào DynamoDB

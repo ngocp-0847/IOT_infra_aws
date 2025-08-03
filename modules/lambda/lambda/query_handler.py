@@ -8,7 +8,7 @@ from decimal import Decimal
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ['DYNAMODB_TABLE'])
 
-def lambda_handler(event, context):
+def handler(event, context):
     """
     Lambda function để xử lý API queries cho dữ liệu IoT
     """
