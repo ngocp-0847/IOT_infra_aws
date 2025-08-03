@@ -1,8 +1,13 @@
 import json
 import boto3
 import os
+import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
+
+# Cấu hình logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 # Initialize AWS clients
 dynamodb = boto3.resource('dynamodb')
@@ -13,11 +18,17 @@ def handler(event, context):
     Lambda function để xử lý API queries cho dữ liệu IoT
     """
     
+    # Log request details
+    logger.info(f"Lambda function started - Request ID: {context.aws_request_id}")
+    logger.info(f"Event: {json.dumps(event, default=str)}")
+    
     try:
         # Parse request
         http_method = event.get('httpMethod', 'GET')
         path = event.get('path', '')
         query_params = event.get('queryStringParameters', {}) or {}
+        
+        logger.info(f"Processing request - Method: {http_method}, Path: {path}, Query params: {query_params}")
         
         # Handle CORS
         headers = {
@@ -28,6 +39,7 @@ def handler(event, context):
         }
         
         if http_method == 'OPTIONS':
+            logger.info("Handling OPTIONS request for CORS")
             return {
                 'statusCode': 200,
                 'headers': headers,
@@ -36,13 +48,17 @@ def handler(event, context):
         
         # Route requests
         if path == '/health':
+            logger.info("Routing to health check endpoint")
             return health_check(headers)
         elif path == '/devices':
+            logger.info("Routing to get devices endpoint")
             return get_devices(headers, query_params)
         elif path.startswith('/devices/'):
             device_id = path.split('/')[2]
+            logger.info(f"Routing to get device data endpoint for device: {device_id}")
             return get_device_data(device_id, headers, query_params)
         else:
+            logger.warning(f"Invalid path requested: {path}")
             return {
                 'statusCode': 404,
                 'headers': headers,
@@ -50,6 +66,7 @@ def handler(event, context):
             }
             
     except Exception as e:
+        logger.error(f"Error in handler: {str(e)}", exc_info=True)
         return {
             'statusCode': 500,
             'headers': headers,
@@ -58,35 +75,45 @@ def handler(event, context):
 
 def health_check(headers):
     """Health check endpoint"""
+    logger.info("Executing health check")
+    response = {
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat()
+    }
+    logger.info(f"Health check response: {response}")
     return {
         'statusCode': 200,
         'headers': headers,
-        'body': json.dumps({
-            'status': 'healthy',
-            'timestamp': datetime.utcnow().isoformat()
-        })
+        'body': json.dumps(response)
     }
 
 def get_devices(headers, query_params):
     """Get list of all devices"""
+    logger.info("Starting get_devices operation")
     try:
         # Scan DynamoDB to get unique devices
+        logger.info("Scanning DynamoDB table for devices")
         response = table.scan(
             ProjectionExpression='device_id',
             Select='SPECIFIC_ATTRIBUTES'
         )
         
         devices = list(set([item['device_id'] for item in response.get('Items', [])]))
+        logger.info(f"Found {len(devices)} unique devices: {devices}")
+        
+        result = {
+            'devices': devices,
+            'count': len(devices)
+        }
+        logger.info(f"Get devices response: {result}")
         
         return {
             'statusCode': 200,
             'headers': headers,
-            'body': json.dumps({
-                'devices': devices,
-                'count': len(devices)
-            })
+            'body': json.dumps(result)
         }
     except Exception as e:
+        logger.error(f"Error in get_devices: {str(e)}", exc_info=True)
         return {
             'statusCode': 500,
             'headers': headers,
@@ -95,11 +122,16 @@ def get_devices(headers, query_params):
 
 def get_device_data(device_id, headers, query_params):
     """Get data for specific device"""
+    logger.info(f"Starting get_device_data for device: {device_id}")
+    logger.info(f"Query parameters: {query_params}")
+    
     try:
         # Parse query parameters
         start_time = query_params.get('start_time')
         end_time = query_params.get('end_time')
         limit = int(query_params.get('limit', '100'))
+        
+        logger.info(f"Parsed parameters - start_time: {start_time}, end_time: {end_time}, limit: {limit}")
         
         # Build query
         key_condition_expression = 'device_id = :device_id'
@@ -108,18 +140,26 @@ def get_device_data(device_id, headers, query_params):
         if start_time:
             key_condition_expression += ' AND timestamp_hour >= :start_time'
             expression_attribute_values[':start_time'] = start_time
+            logger.info(f"Added start_time filter: {start_time}")
             
         if end_time:
             key_condition_expression += ' AND timestamp_hour <= :end_time'
             expression_attribute_values[':end_time'] = end_time
+            logger.info(f"Added end_time filter: {end_time}")
+        
+        logger.info(f"Query expression: {key_condition_expression}")
+        logger.info(f"Expression attribute values: {expression_attribute_values}")
         
         # Query DynamoDB
+        logger.info("Executing DynamoDB query")
         response = table.query(
             KeyConditionExpression=key_condition_expression,
             ExpressionAttributeValues=expression_attribute_values,
             Limit=limit,
             ScanIndexForward=False  # Most recent first
         )
+        
+        logger.info(f"DynamoDB query completed - Items found: {len(response.get('Items', []))}")
         
         # Convert Decimal to float for JSON serialization
         items = []
@@ -132,18 +172,25 @@ def get_device_data(device_id, headers, query_params):
                     converted_item[key] = value
             items.append(converted_item)
         
+        result = {
+            'device_id': device_id,
+            'data': items,
+            'count': len(items),
+            'last_evaluated_key': response.get('LastEvaluatedKey')
+        }
+        
+        logger.info(f"Get device data response - Device: {device_id}, Count: {len(items)}")
+        if items:
+            logger.info(f"Sample data item: {items[0]}")
+        
         return {
             'statusCode': 200,
             'headers': headers,
-            'body': json.dumps({
-                'device_id': device_id,
-                'data': items,
-                'count': len(items),
-                'last_evaluated_key': response.get('LastEvaluatedKey')
-            })
+            'body': json.dumps(result)
         }
         
     except Exception as e:
+        logger.error(f"Error in get_device_data for device {device_id}: {str(e)}", exc_info=True)
         return {
             'statusCode': 500,
             'headers': headers,
