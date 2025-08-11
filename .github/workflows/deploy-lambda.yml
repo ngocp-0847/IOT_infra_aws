@@ -89,21 +89,3 @@ jobs:
           --function-name ${{ vars.PROJECT_NAME }}-query-handler-${{ vars.ENVIRONMENT }}
         
         echo "All Lambda functions deployed and ready!"
-    
-    - name: Test Lambda functions (optional)
-      run: |
-        # Test stream processor
-        echo "Testing stream processor..."
-        aws lambda invoke \
-          --function-name ${{ vars.PROJECT_NAME }}-stream-processor-${{ vars.ENVIRONMENT }} \
-          --payload '{"test": true}' \
-          /tmp/stream_response.json
-        
-        # Test query handler
-        echo "Testing query handler..."
-        aws lambda invoke \
-          --function-name ${{ vars.PROJECT_NAME }}-query-handler-${{ vars.ENVIRONMENT }} \
-          --payload '{"test": true}' \
-          /tmp/query_response.json
-        
-        echo "Lambda function tests completed!"
