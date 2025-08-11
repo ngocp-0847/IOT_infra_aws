@@ -22,3 +22,13 @@ output "lambda_role_arn" {
   description = "ARN của IAM role cho Lambda"
   value       = aws_iam_role.lambda_role.arn
 } 
+
+output "stream_processor_ecr_repository_url" {
+  description = "ECR repository URL cho stream processor"
+  value       = aws_ecr_repository.stream.repository_url
+}
+
+output "query_handler_ecr_repository_url" {
+  description = "ECR repository URL cho query handler"
+  value       = aws_ecr_repository.query.repository_url
+}

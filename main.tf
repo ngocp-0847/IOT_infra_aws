@@ -128,3 +128,19 @@ module "monitoring" {
   aws_region = var.aws_region
   tags = var.tags
 } 
+
+# =============================================================================
+# CI/CD (optional) - CodePipeline to auto-build and deploy on merges
+# =============================================================================
+module "cicd" {
+  source = "./modules/cicd"
+
+  environment              = var.environment
+  project_name             = var.project_name
+  codestar_connection_name = "${var.project_name}-github-connection-${var.environment}"
+  github_owner             = var.github_owner
+  github_repo              = var.github_repo
+  github_branch            = var.github_branch
+  terraform_workdir        = var.terraform_workdir
+  tags                     = var.tags
+}

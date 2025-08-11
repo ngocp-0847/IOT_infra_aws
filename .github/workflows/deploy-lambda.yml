@@ -1,0 +1,53 @@
+name: Trigger AWS CodePipeline on PR merge
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      # Tránh trigger pipeline khi chỉ thay đổi code Lambda (đã có workflow build/push riêng)
+      - 'modules/api-gateway/**'
+      - 'modules/sqs/**'
+      - 'modules/dynamodb/**'
+      - 'modules/vpc/**'
+      - 'modules/iot-core/**'
+      - 'environments/dev/**'
+      - 'versions.tf'
+      - 'variables.tf'
+      - 'main.tf'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-dev-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  trigger-pipeline:
+    name: Trigger CodePipeline
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TF_IN_AUTOMATION: "true"
+      AWS_REGION: ap-southeast-1
+      AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+      PIPELINE_NAME: ${{ vars.CI_PIPELINE_NAME }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Trigger CodePipeline execution
+        run: |
+          if [ -z "${PIPELINE_NAME}" ]; then
+            echo "PIPELINE_NAME not set in repository variables (CI_PIPELINE_NAME)." >&2
+            exit 1
+          fi
+          aws codepipeline start-pipeline-execution --name "$PIPELINE_NAME" | cat
+
+

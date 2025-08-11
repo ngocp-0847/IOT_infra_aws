@@ -120,3 +120,30 @@ variable "tags" {
     Owner       = "DevOps Team"
   }
 } 
+
+# =========================
+# CI/CD variables
+# =========================
+variable "github_owner" {
+  description = "GitHub owner/org for CI/CD pipeline"
+  type        = string
+  default     = "ngoctera"
+}
+
+variable "github_repo" {
+  description = "GitHub repository name for CI/CD pipeline"
+  type        = string
+  default     = "IOT_infra_aws"
+}
+
+variable "github_branch" {
+  description = "Branch to trigger pipeline"
+  type        = string
+  default     = "main"
+}
+
+variable "terraform_workdir" {
+  description = "Terraform working directory for pipeline to apply"
+  type        = string
+  default     = "environments/dev"
+}
