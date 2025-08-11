@@ -1,53 +1,109 @@
-name: Trigger AWS CodePipeline on PR merge
+name: Deploy Lambda Functions
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
     paths:
-      # Tránh trigger pipeline khi chỉ thay đổi code Lambda (đã có workflow build/push riêng)
-      - 'modules/api-gateway/**'
-      - 'modules/sqs/**'
-      - 'modules/dynamodb/**'
-      - 'modules/vpc/**'
-      - 'modules/iot-core/**'
-      - 'environments/dev/**'
-      - 'versions.tf'
-      - 'variables.tf'
-      - 'main.tf'
+      - 'modules/lambda/lambda/**'
   workflow_dispatch:
 
-concurrency:
-  group: deploy-dev-${{ github.ref }}
-  cancel-in-progress: true
-
+env:
+  AWS_REGION: us-east-1  # Thay đổi theo region của bạn
+  
 jobs:
-  trigger-pipeline:
-    name: Trigger CodePipeline
+  deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       id-token: write
-    env:
-      TF_IN_AUTOMATION: "true"
-      AWS_REGION: ap-southeast-1
-      AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
-      PIPELINE_NAME: ${{ vars.CI_PIPELINE_NAME }}
+      contents: read
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Trigger CodePipeline execution
-        run: |
-          if [ -z "${PIPELINE_NAME}" ]; then
-            echo "PIPELINE_NAME not set in repository variables (CI_PIPELINE_NAME)." >&2
-            exit 1
-          fi
-          aws codepipeline start-pipeline-execution --name "$PIPELINE_NAME" | cat
-
-
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}  # ARN của IAM role được tạo bởi module CI/CD
+        role-session-name: GitHubActions-Lambda-Deploy
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies for stream processor
+      run: |
+        mkdir -p /tmp/stream_processor
+        cp modules/lambda/lambda/stream_processor.py /tmp/stream_processor/
+        cd /tmp/stream_processor
+        # Tạo requirements.txt nếu cần
+        if [ -f ../../modules/lambda/lambda/requirements.txt ]; then
+          pip install -r ../../modules/lambda/lambda/requirements.txt -t .
+        fi
+    
+    - name: Install dependencies for query handler  
+      run: |
+        mkdir -p /tmp/query_handler
+        cp modules/lambda/lambda/query_handler.py /tmp/query_handler/
+        cd /tmp/query_handler
+        # Tạo requirements.txt nếu cần
+        if [ -f ../../modules/lambda/lambda/requirements.txt ]; then
+          pip install -r ../../modules/lambda/lambda/requirements.txt -t .
+        fi
+    
+    - name: Package Lambda functions
+      run: |
+        # Package stream processor
+        cd /tmp/stream_processor
+        zip -r /tmp/stream_processor.zip . -x "*.pyc" "__pycache__/*"
+        
+        # Package query handler
+        cd /tmp/query_handler  
+        zip -r /tmp/query_handler.zip . -x "*.pyc" "__pycache__/*"
+    
+    - name: Deploy Stream Processor Lambda
+      run: |
+        aws lambda update-function-code \
+          --function-name ${{ vars.PROJECT_NAME }}-stream-processor-${{ vars.ENVIRONMENT }} \
+          --zip-file fileb:///tmp/stream_processor.zip
+        
+        echo "Stream processor deployed successfully!"
+    
+    - name: Deploy Query Handler Lambda
+      run: |
+        aws lambda update-function-code \
+          --function-name ${{ vars.PROJECT_NAME }}-query-handler-${{ vars.ENVIRONMENT }} \
+          --zip-file fileb:///tmp/query_handler.zip
+          
+        echo "Query handler deployed successfully!"
+    
+    - name: Wait for deployment completion
+      run: |
+        # Chờ function update hoàn thành
+        aws lambda wait function-updated \
+          --function-name ${{ vars.PROJECT_NAME }}-stream-processor-${{ vars.ENVIRONMENT }}
+        
+        aws lambda wait function-updated \
+          --function-name ${{ vars.PROJECT_NAME }}-query-handler-${{ vars.ENVIRONMENT }}
+        
+        echo "All Lambda functions deployed and ready!"
+    
+    - name: Test Lambda functions (optional)
+      run: |
+        # Test stream processor
+        echo "Testing stream processor..."
+        aws lambda invoke \
+          --function-name ${{ vars.PROJECT_NAME }}-stream-processor-${{ vars.ENVIRONMENT }} \
+          --payload '{"test": true}' \
+          /tmp/stream_response.json
+        
+        # Test query handler
+        echo "Testing query handler..."
+        aws lambda invoke \
+          --function-name ${{ vars.PROJECT_NAME }}-query-handler-${{ vars.ENVIRONMENT }} \
+          --payload '{"test": true}' \
+          /tmp/query_response.json
+        
+        echo "Lambda function tests completed!"

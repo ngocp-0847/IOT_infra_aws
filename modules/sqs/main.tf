@@ -6,10 +6,10 @@
 resource "aws_sqs_queue" "iot_queue" {
   name                       = var.queue_name
   delay_seconds              = 0
-  max_message_size           = 262144  # 256KB
-  message_retention_seconds  = 345600  # 4 days
-  receive_wait_time_seconds  = 20      # Long polling
-  visibility_timeout_seconds = 30      # Tối ưu cho Lambda
+  max_message_size           = 262144 # 256KB
+  message_retention_seconds  = 345600 # 4 days
+  receive_wait_time_seconds  = 20     # Long polling
+  visibility_timeout_seconds = var.visibility_timeout_seconds
 
   # Dead Letter Queue
   redrive_policy = jsonencode({
@@ -25,7 +25,7 @@ resource "aws_sqs_queue" "iot_queue" {
 # Dead Letter Queue
 resource "aws_sqs_queue" "dlq" {
   name                      = "${var.queue_name}-dlq"
-  message_retention_seconds = 1209600  # 14 days
+  message_retention_seconds = 1209600 # 14 days
 
   tags = merge(var.tags, {
     Name = "${var.project_name}-sqs-dlq-${var.environment}"
@@ -35,7 +35,7 @@ resource "aws_sqs_queue" "dlq" {
 # CloudWatch Log Group cho SQS
 resource "aws_cloudwatch_log_group" "sqs_logs" {
   name              = "/aws/sqs/${var.queue_name}"
-  retention_in_days = 7  # Giảm retention để tiết kiệm CloudWatch costs
+  retention_in_days = 7 # Giảm retention để tiết kiệm CloudWatch costs
 
   tags = merge(var.tags, {
     Name = "${var.project_name}-sqs-logs-${var.environment}"

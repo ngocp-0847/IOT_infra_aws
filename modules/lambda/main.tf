@@ -1,5 +1,5 @@
 # =============================================================================
-# Lambda Module using Container Images from ECR (no local build by Terraform)
+# Lambda Module using ZIP deployment (deployed by GitHub Actions)
 # =============================================================================
 
 # IAM Role cho Lambda
@@ -84,34 +84,35 @@ resource "aws_iam_role_policy" "lambda_policy" {
   })
 }
 
-# ECR repositories for Lambda images
-resource "aws_ecr_repository" "stream" {
-  name = "${var.project_name}-stream-processor-${var.environment}"
+# Placeholder ZIP file for initial deployment
+data "archive_file" "lambda_placeholder" {
+  type        = "zip"
+  output_path = "${path.module}/placeholder_lambda.zip"
 
-  image_scanning_configuration {
-    scan_on_push = true
+  source {
+    content  = <<EOF
+def lambda_handler(event, context):
+    return {
+        'statusCode': 200,
+        'body': 'Placeholder function - will be replaced by GitHub Actions'
+    }
+EOF
+    filename = "lambda_function.py"
   }
-
-  tags = var.tags
 }
 
-resource "aws_ecr_repository" "query" {
-  name = "${var.project_name}-query-handler-${var.environment}"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = var.tags
-}
-
-# Lambda Function cho Stream Processing - Container Image
+# Lambda Function cho Stream Processing - ZIP deployment
 resource "aws_lambda_function" "stream_processor" {
   function_name = "${var.project_name}-stream-processor-${var.environment}"
   role          = aws_iam_role.lambda_role.arn
 
-  package_type = "Image"
-  image_uri    = "${aws_ecr_repository.stream.repository_url}:${var.stream_processor_image_tag}"
+  # Initial deployment with placeholder
+  filename         = data.archive_file.lambda_placeholder.output_path
+  source_code_hash = data.archive_file.lambda_placeholder.output_base64sha256
+
+  # Runtime configuration
+  runtime = var.runtime
+  handler = "stream_processor.lambda_handler"
 
   timeout     = var.timeout
   memory_size = var.memory_size
@@ -129,15 +130,29 @@ resource "aws_lambda_function" "stream_processor" {
   }
 
   tags = var.tags
+
+  # Ignore changes to source code as it will be updated by GitHub Actions
+  lifecycle {
+    ignore_changes = [
+      filename,
+      source_code_hash,
+      last_modified
+    ]
+  }
 }
 
-# Lambda Function cho Query Handler - Container Image
+# Lambda Function cho Query Handler - ZIP deployment
 resource "aws_lambda_function" "query_handler" {
   function_name = "${var.project_name}-query-handler-${var.environment}"
   role          = aws_iam_role.lambda_role.arn
 
-  package_type = "Image"
-  image_uri    = "${aws_ecr_repository.query.repository_url}:${var.query_handler_image_tag}"
+  # Initial deployment with placeholder
+  filename         = data.archive_file.lambda_placeholder.output_path
+  source_code_hash = data.archive_file.lambda_placeholder.output_base64sha256
+
+  # Runtime configuration
+  runtime = var.runtime
+  handler = "query_handler.lambda_handler"
 
   timeout     = var.timeout
   memory_size = var.memory_size
@@ -149,13 +164,22 @@ resource "aws_lambda_function" "query_handler" {
   }
 
   tags = var.tags
+
+  # Ignore changes to source code as it will be updated by GitHub Actions
+  lifecycle {
+    ignore_changes = [
+      filename,
+      source_code_hash,
+      last_modified
+    ]
+  }
 }
 
 # Event Source Mapping cho SQS
 resource "aws_lambda_event_source_mapping" "sqs_mapping" {
-  event_source_arn = var.sqs_queue_arn
-  function_name    = aws_lambda_function.stream_processor.function_name
-  batch_size       = 10
+  event_source_arn                   = var.sqs_queue_arn
+  function_name                      = aws_lambda_function.stream_processor.function_name
+  batch_size                         = 10
   maximum_batching_window_in_seconds = 5
 }
 

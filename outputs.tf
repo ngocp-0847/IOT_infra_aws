@@ -41,9 +41,9 @@ output "lambda_functions" {
 output "vpc_info" {
   description = "Thông tin VPC"
   value = {
-    vpc_id = module.vpc.vpc_id
+    vpc_id             = module.vpc.vpc_id
     private_subnet_ids = module.vpc.private_subnet_ids
-    public_subnet_ids = module.vpc.public_subnet_ids
+    public_subnet_ids  = module.vpc.public_subnet_ids
   }
 }
 
@@ -51,24 +51,24 @@ output "monitoring" {
   description = "Thông tin monitoring"
   value = {
     dashboard_name = module.monitoring.dashboard_name
-    sns_topic_arn = module.monitoring.sns_topic_arn
+    sns_topic_arn  = module.monitoring.sns_topic_arn
   }
 }
 
 output "iot_certificate" {
   description = "Thông tin IoT certificate"
   value = {
-    certificate_id = module.iot_core.certificate_id
+    certificate_id  = module.iot_core.certificate_id
     certificate_arn = module.iot_core.certificate_arn
-    policy_name = module.iot_core.policy_name
+    policy_name     = module.iot_core.policy_name
   }
 }
 
 output "deployment_info" {
   description = "Thông tin deployment"
   value = {
-    environment = var.environment
-    region = var.aws_region
+    environment  = var.environment
+    region       = var.aws_region
     project_name = var.project_name
   }
 } 

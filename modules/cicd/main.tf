@@ -1,5 +1,5 @@
 ###############################
-# CI/CD: CodePipeline for Lambda deploy
+# CI/CD: GitHub Actions for Lambda deploy
 ###############################
 
 terraform {
@@ -11,229 +11,116 @@ terraform {
   }
 }
 
-locals {
-  artifact_bucket_name = coalesce(var.artifact_bucket_name, "${var.project_name}-cicd-artifacts-${var.environment}")
-  pipeline_name        = coalesce(var.pipeline_name, "${var.project_name}-lambda-cicd-${var.environment}")
-  codebuild_name       = coalesce(var.codebuild_project_name, "${var.project_name}-lambda-build-${var.environment}")
+# Data sources
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+# IAM role for GitHub Actions OIDC
+data "aws_iam_policy_document" "github_actions_assume" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+    condition {
+      test     = "StringLike"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_owner}/${var.github_repo}:*"]
+    }
+  }
 }
 
-# S3 artifact bucket for CodePipeline
-resource "aws_s3_bucket" "artifacts" {
-  bucket = local.artifact_bucket_name
-  force_destroy = false
+# GitHub OIDC Provider
+resource "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
+
+  client_id_list = [
+    "sts.amazonaws.com"
+  ]
+
+  thumbprint_list = [
+    "6938fd4d98bab03faadb97b34396831e3780aea1",
+    "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
+  ]
 
   tags = var.tags
 }
 
-resource "aws_s3_bucket_versioning" "artifacts" {
-  bucket = aws_s3_bucket.artifacts.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts" {
-  bucket = aws_s3_bucket.artifacts.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-# IAM role for CodePipeline
-data "aws_iam_policy_document" "codepipeline_assume" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["codepipeline.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "codepipeline" {
-  name               = "${local.pipeline_name}-role"
-  assume_role_policy = data.aws_iam_policy_document.codepipeline_assume.json
+# IAM role for GitHub Actions
+resource "aws_iam_role" "github_actions" {
+  name               = "${var.project_name}-github-actions-${var.environment}"
+  assume_role_policy = data.aws_iam_policy_document.github_actions_assume.json
   tags               = var.tags
 }
 
-data "aws_iam_policy_document" "codepipeline_policy" {
+# IAM policy for Lambda deployment
+data "aws_iam_policy_document" "github_actions_policy" {
+  # Lambda permissions
   statement {
-    sid     = "S3Access"
+    sid = "LambdaAccess"
     actions = [
-      "s3:GetObject",
-      "s3:GetObjectVersion",
-      "s3:PutObject",
-      "s3:ListBucket"
+      "lambda:GetFunction",
+      "lambda:UpdateFunctionCode",
+      "lambda:UpdateFunctionConfiguration",
+      "lambda:PublishVersion",
+      "lambda:CreateAlias",
+      "lambda:UpdateAlias",
+      "lambda:GetAlias",
+      "lambda:ListVersionsByFunction",
+      "lambda:ListAliases"
     ]
     resources = [
-      aws_s3_bucket.artifacts.arn,
-      "${aws_s3_bucket.artifacts.arn}/*"
+      "arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:${var.project_name}-*"
     ]
   }
 
+  # ECR permissions for Lambda container images
   statement {
-    sid     = "CodeBuildAccess"
+    sid = "ECRAccess"
     actions = [
-      "codebuild:BatchGetBuilds",
-      "codebuild:StartBuild",
-      "codebuild:BatchGetProjects"
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
+      "ecr:GetAuthorizationToken"
     ]
-    resources = [aws_codebuild_project.build.arn]
+    resources = ["*"]
   }
 
+  # CloudWatch Logs permissions
   statement {
-    sid     = "CodeStarConnectionUse"
+    sid = "CloudWatchLogs"
     actions = [
-      "codestar-connections:UseConnection"
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "logs:DescribeLogGroups",
+      "logs:DescribeLogStreams"
     ]
-    resources = [aws_codestarconnections_connection.github.arn]
+    resources = [
+      "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.project_name}-*"
+    ]
   }
-}
 
-resource "aws_iam_role_policy" "codepipeline_inline" {
-  name   = "${local.pipeline_name}-policy"
-  role   = aws_iam_role.codepipeline.id
-  policy = data.aws_iam_policy_document.codepipeline_policy.json
-}
-
-# IAM role for CodeBuild (grant admin for simplicity; consider least-privilege later)
-data "aws_iam_policy_document" "codebuild_assume" {
+  # IAM permissions for Lambda execution role
   statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["codebuild.amazonaws.com"]
-    }
+    sid = "IAMAccess"
+    actions = [
+      "iam:PassRole"
+    ]
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.project_name}-*"
+    ]
   }
 }
 
-resource "aws_iam_role" "codebuild" {
-  name               = "${local.codebuild_name}-role"
-  assume_role_policy = data.aws_iam_policy_document.codebuild_assume.json
-  tags               = var.tags
+resource "aws_iam_role_policy" "github_actions_policy" {
+  name   = "${var.project_name}-github-actions-policy-${var.environment}"
+  role   = aws_iam_role.github_actions.id
+  policy = data.aws_iam_policy_document.github_actions_policy.json
 }
-
-resource "aws_iam_role_policy_attachment" "codebuild_admin" {
-  role       = aws_iam_role.codebuild.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
-}
-
-# CodeStar connection to GitHub (requires manual authorization once)
-resource "aws_codestarconnections_connection" "github" {
-  name          = var.codestar_connection_name
-  provider_type = "GitHub"
-}
-
-# CodeBuild project
-resource "aws_codebuild_project" "build" {
-  name         = local.codebuild_name
-  service_role = aws_iam_role.codebuild.arn
-  artifacts {
-    type = "NO_ARTIFACTS"
-  }
-  environment {
-    compute_type                = "BUILD_GENERAL1_SMALL"
-    image                       = "aws/codebuild/standard:7.0"
-    type                        = "LINUX_CONTAINER"
-    privileged_mode             = false
-    environment_variable {
-      name  = "TF_IN_AUTOMATION"
-      value = "true"
-    }
-  }
-  source {
-    type      = "CODEPIPELINE"
-    buildspec = coalesce(var.buildspec_override, local.default_buildspec)
-  }
-  logs_config {
-    cloudwatch_logs {
-      group_name  = "/codebuild/${local.codebuild_name}"
-      stream_name = "build"
-      status      = "ENABLED"
-    }
-  }
-  tags = var.tags
-}
-
-# Default buildspec (used by pipeline when not overridden)
-locals {
-  default_buildspec = <<EOF
-version: 0.2
-env:
-  variables:
-    TF_IN_AUTOMATION: "true"
-phases:
-  install:
-    runtime-versions:
-      python: 3.11
-    commands:
-      - echo Installing Terraform
-      - curl -sSL https://releases.hashicorp.com/terraform/1.7.5/terraform_1.7.5_linux_amd64.zip -o /tmp/terraform.zip
-      - unzip -o /tmp/terraform.zip -d /usr/local/bin
-      - terraform version
-  build:
-    commands:
-      - echo Applying Terraform in ${var.terraform_workdir}
-      - cd ${var.terraform_workdir}
-      - terraform init -input=false
-      - terraform plan -input=false -no-color
-      - terraform apply -auto-approve -input=false -no-color
-artifacts:
-  files:
-    - '**/*'
-EOF
-}
-
-# CodePipeline definition
-resource "aws_codepipeline" "this" {
-  name     = local.pipeline_name
-  role_arn = aws_iam_role.codepipeline.arn
-
-  artifact_store {
-    location = aws_s3_bucket.artifacts.bucket
-    type     = "S3"
-  }
-
-  stage {
-    name = "Source"
-    action {
-      name             = "Source"
-      category         = "Source"
-      owner            = "AWS"
-      provider         = "CodeStarSourceConnection"
-      version          = "1"
-      output_artifacts = ["source_output"]
-      configuration = {
-        ConnectionArn    = aws_codestarconnections_connection.github.arn
-        FullRepositoryId  = "${var.github_owner}/${var.github_repo}"
-        BranchName        = var.github_branch
-        DetectChanges     = "false"
-      }
-    }
-  }
-
-  stage {
-    name = "BuildAndDeploy"
-    action {
-      name            = "CodeBuild"
-      category        = "Build"
-      owner           = "AWS"
-      provider        = "CodeBuild"
-      input_artifacts = ["source_output"]
-      version         = "1"
-      configuration = {
-        ProjectName = aws_codebuild_project.build.name
-        PrimarySource = "source_output"
-        EnvironmentVariables = jsonencode([
-          { name = "TF_IN_AUTOMATION", value = "true", type = "PLAINTEXT" }
-        ])
-      }
-    }
-  }
-
-  tags = var.tags
-}
-
-

@@ -17,10 +17,10 @@ terraform {
   }
 
   backend "s3" {
-    profile        = "personal"
-    bucket         = "iot-infra-ngoctera"
-    key            = "terraform"
-    region         = "us-east-2"
+    profile = "personal"
+    bucket  = "iot-infra-ngoctera"
+    key     = "terraform"
+    region  = "us-east-2"
   }
 }
 

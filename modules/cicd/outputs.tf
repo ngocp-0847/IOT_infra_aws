@@ -1,21 +1,14 @@
-output "pipeline_name" {
-  value       = aws_codepipeline.this.name
-  description = "Name of the CodePipeline"
+output "github_actions_role_arn" {
+  value       = aws_iam_role.github_actions.arn
+  description = "ARN of the IAM role for GitHub Actions"
 }
 
-output "artifact_bucket" {
-  value       = aws_s3_bucket.artifacts.bucket
-  description = "Artifact bucket name"
+output "github_actions_role_name" {
+  value       = aws_iam_role.github_actions.name
+  description = "Name of the IAM role for GitHub Actions"
 }
 
-output "codebuild_project_name" {
-  value       = aws_codebuild_project.build.name
-  description = "CodeBuild project name"
+output "github_oidc_provider_arn" {
+  value       = aws_iam_openid_connect_provider.github.arn
+  description = "ARN of the GitHub OIDC provider"
 }
-
-output "codestar_connection_arn" {
-  value       = aws_codestarconnections_connection.github.arn
-  description = "CodeStar connection ARN"
-}
-
-

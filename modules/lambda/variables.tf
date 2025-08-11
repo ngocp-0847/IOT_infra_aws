@@ -23,19 +23,6 @@ variable "memory_size" {
   type        = number
 }
 
-# Image tag cho container images của Lambda (mặc định dùng "latest" để có thể update qua GitHub Actions mà không cần đổi Terraform)
-variable "stream_processor_image_tag" {
-  description = "Docker image tag cho Lambda stream processor"
-  type        = string
-  default     = "latest"
-}
-
-variable "query_handler_image_tag" {
-  description = "Docker image tag cho Lambda query handler"
-  type        = string
-  default     = "latest"
-}
-
 variable "sqs_queue_arn" {
   description = "ARN của SQS queue"
   type        = string
@@ -63,4 +50,4 @@ variable "tags" {
   description = "Tags chung"
   type        = map(string)
   default     = {}
-} 
+}

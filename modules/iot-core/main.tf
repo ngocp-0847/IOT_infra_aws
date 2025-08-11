@@ -32,8 +32,8 @@ resource "aws_iot_topic_rule" "sqs_rule" {
   sql_version = "2016-03-23"
 
   sqs {
-    queue_url = var.sqs_queue_url
-    role_arn  = aws_iam_role.iot_sqs_role.arn
+    queue_url  = var.sqs_queue_url
+    role_arn   = aws_iam_role.iot_sqs_role.arn
     use_base64 = false
   }
 
@@ -49,8 +49,8 @@ resource "aws_iot_topic_rule" "realtime_rule" {
   sql_version = "2016-03-23"
 
   sqs {
-    queue_url = var.sqs_queue_url
-    role_arn  = aws_iam_role.iot_sqs_role.arn
+    queue_url  = var.sqs_queue_url
+    role_arn   = aws_iam_role.iot_sqs_role.arn
     use_base64 = false
   }
 
@@ -101,7 +101,7 @@ resource "aws_iot_thing_type" "sensor" {
   name = "${var.project_name}_sensor_${var.environment}"
 
   properties {
-    description = "IoT Sensor Device Type"
+    description           = "IoT Sensor Device Type"
     searchable_attributes = ["device_id", "sensor_type"]
   }
 

@@ -67,12 +67,12 @@ resource "aws_s3_bucket_lifecycle_configuration" "raw_data" {
     }
 
     noncurrent_version_transition {
-      noncurrent_days = 30   # Tối thiểu 30 ngày cho STANDARD_IA
+      noncurrent_days = 30 # Tối thiểu 30 ngày cho STANDARD_IA
       storage_class   = "STANDARD_IA"
     }
 
     noncurrent_version_transition {
-      noncurrent_days = 90   # Tối thiểu 90 ngày cho GLACIER
+      noncurrent_days = 90 # Tối thiểu 90 ngày cho GLACIER
       storage_class   = "GLACIER"
     }
 
