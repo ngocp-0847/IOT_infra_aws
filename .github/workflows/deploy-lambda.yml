@@ -1,3 +1,17 @@
+# =============================================================================
+# GitHub Actions Workflow - Deploy Lambda Functions
+# =============================================================================
+# 
+# Required Environment Variables (GitHub Repository > Settings > Environments > dev > Environment Variables):
+# - PROJECT_NAME: iot-data-platform (must match terraform.tfvars, use hyphen format)
+# - ENVIRONMENT: dev (must match terraform.tfvars)
+# 
+# Optional Environment Variables (defaults provided):
+# - AWS_REGION: us-east-1 (default)
+# - AWS_ACCOUNT_ID: 206218410076 (default)
+#
+# =============================================================================
+
 name: Deploy Lambda Functions
 
 on:
@@ -5,28 +19,109 @@ on:
     branches: [main]
     paths:
       - 'modules/lambda/lambda/**'
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 env:
-  AWS_REGION: us-east-1  # Thay đổi theo region của bạn
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
   
 jobs:
   deploy:
+    environment: dev
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
+      pull-requests: read
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
     
+    - name: Debug OIDC Token
+      shell: bash
+      run: |
+        echo "=== Debugging OIDC Token ==="
+        echo "GITHUB_REF: $GITHUB_REF"
+        echo "GITHUB_HEAD_REF: $GITHUB_HEAD_REF"
+        echo "GITHUB_BASE_REF: $GITHUB_BASE_REF"
+        echo "GITHUB_EVENT_NAME: $GITHUB_EVENT_NAME"
+        echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
+        
+        echo "Requesting OIDC token..."
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+          url="$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com"
+          token=$(curl -sSL -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$url" | jq -r .value)
+          
+          echo "=== OIDC Token Claims ==="
+          echo "$token" | awk -F. '{print $2}' | base64 -d 2>/dev/null | jq . || echo "Failed to decode token"
+        else
+          echo "OIDC token request variables not available"
+        fi
+    - name: Check required vars
+      shell: bash
+      run: |
+        echo "=== Checking required environment variables ==="
+        
+        # Check PROJECT_NAME
+        if [ -z "${{ vars.PROJECT_NAME }}" ]; then
+          echo "❌ Missing vars.PROJECT_NAME"
+          echo "Please add PROJECT_NAME in GitHub: Settings > Environments > dev > Environment variables"
+          echo "Expected value: iot_data_platform"
+          exit 1
+        else
+          echo "✅ PROJECT_NAME: ${{ vars.PROJECT_NAME }}"
+        fi
+        
+        # Check ENVIRONMENT
+        if [ -z "${{ vars.ENVIRONMENT }}" ]; then
+          echo "❌ Missing vars.ENVIRONMENT" 
+          echo "Please add ENVIRONMENT in GitHub: Settings > Environments > dev > Environment variables"
+          echo "Expected value: dev"
+          exit 1
+        else
+          echo "✅ ENVIRONMENT: ${{ vars.ENVIRONMENT }}"
+        fi
+        
+        # Check AWS_REGION (optional - defaults to us-east-1)
+        if [ -z "${{ vars.AWS_REGION }}" ]; then
+          echo "⚠️  AWS_REGION not set, using default: ${{ env.AWS_REGION }}"
+        else
+          echo "✅ AWS_REGION: ${{ vars.AWS_REGION }}"
+        fi
+        
+        # Check AWS_ACCOUNT_ID (optional - defaults to 206218410076)
+        AWS_ACCOUNT_ID="${{ vars.AWS_ACCOUNT_ID || '206218410076' }}"
+        if [ "$AWS_ACCOUNT_ID" = "206218410076" ]; then
+          echo "⚠️  AWS_ACCOUNT_ID not set, using default: $AWS_ACCOUNT_ID"
+        else
+          echo "✅ AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID"
+        fi
+        
+        # Check GITHUB_OWNER and GITHUB_REPO (derived from context)
+        echo "✅ GITHUB_REPOSITORY: ${{ github.repository }}"
+        echo "✅ GITHUB_OWNER: ${{ github.repository_owner }}"
+        
+        # Display IAM Role ARN that will be assumed
+        ROLE_ARN="arn:aws:iam::$AWS_ACCOUNT_ID:role/${{ vars.PROJECT_NAME }}-github-actions-${{ vars.ENVIRONMENT }}"
+        echo "🔑 IAM Role ARN: $ROLE_ARN"
+        
+        echo "=== All required variables check completed ==="
+
     - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@v4.3.1
       with:
-        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}  # ARN của IAM role được tạo bởi module CI/CD
-        role-session-name: GitHubActions-Lambda-Deploy
+        role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID || '206218410076' }}:role/${{ vars.PROJECT_NAME }}-github-actions-${{ vars.ENVIRONMENT }}
+        role-session-name: GitHubActions-Lambda-Deploy-${{ github.run_id }}
         aws-region: ${{ env.AWS_REGION }}
+        audience: sts.amazonaws.com
+        output-credentials: true
+        role-duration-seconds: 3600
+    - name: Verify AWS credentials
+      run: |
+        aws sts get-caller-identity
+        echo "✅ AWS credentials configured successfully"
     
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -65,19 +160,27 @@ jobs:
     
     - name: Deploy Stream Processor Lambda
       run: |
-        aws lambda update-function-code \
+        echo "Deploying stream processor..."
+        if aws lambda update-function-code \
           --function-name ${{ vars.PROJECT_NAME }}-stream-processor-${{ vars.ENVIRONMENT }} \
-          --zip-file fileb:///tmp/stream_processor.zip
-        
-        echo "Stream processor deployed successfully!"
+          --zip-file fileb:///tmp/stream_processor.zip; then
+          echo "✅ Stream processor deployed successfully!"
+        else
+          echo "❌ Failed to deploy stream processor"
+          exit 1
+        fi
     
     - name: Deploy Query Handler Lambda
       run: |
-        aws lambda update-function-code \
+        echo "Deploying query handler..."
+        if aws lambda update-function-code \
           --function-name ${{ vars.PROJECT_NAME }}-query-handler-${{ vars.ENVIRONMENT }} \
-          --zip-file fileb:///tmp/query_handler.zip
-          
-        echo "Query handler deployed successfully!"
+          --zip-file fileb:///tmp/query_handler.zip; then
+          echo "✅ Query handler deployed successfully!"
+        else
+          echo "❌ Failed to deploy query handler"
+          exit 1
+        fi
     
     - name: Wait for deployment completion
       run: |

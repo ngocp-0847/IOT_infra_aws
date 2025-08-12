@@ -71,4 +71,23 @@ output "deployment_info" {
     region       = var.aws_region
     project_name = var.project_name
   }
-} 
+}
+
+# =============================================================================
+# CI/CD Outputs
+# =============================================================================
+
+output "github_actions_role_arn" {
+  description = "ARN của IAM role cho GitHub Actions"
+  value       = module.cicd.github_actions_role_arn
+}
+
+output "github_actions_role_name" {
+  description = "Tên IAM role cho GitHub Actions"
+  value       = module.cicd.github_actions_role_name
+}
+
+output "github_oidc_provider_arn" {
+  description = "ARN của GitHub OIDC provider"
+  value       = module.cicd.github_oidc_provider_arn
+}
