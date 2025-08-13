@@ -13,9 +13,9 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   statistic           = "Sum"
   threshold           = "5"
   alarm_description   = "Lambda function errors detected"
-  
+
   alarm_actions = [aws_sns_topic.monitoring.arn]
-  
+
   tags = var.tags
 }
 
@@ -30,9 +30,9 @@ resource "aws_cloudwatch_metric_alarm" "dynamodb_throttling" {
   statistic           = "Sum"
   threshold           = "10"
   alarm_description   = "DynamoDB throttling detected"
-  
+
   alarm_actions = [aws_sns_topic.monitoring.arn]
-  
+
   tags = var.tags
 }
 
@@ -45,18 +45,18 @@ resource "aws_cloudwatch_metric_alarm" "sqs_errors" {
   namespace           = "AWS/SQS"
   period              = "300"
   statistic           = "Average"
-  threshold           = "300"  # 5 phút
+  threshold           = "300" # 5 phút
   alarm_description   = "SQS message age too high"
-  
+
   alarm_actions = [aws_sns_topic.monitoring.arn]
-  
+
   tags = var.tags
 }
 
 # SNS Topic cho monitoring alerts
 resource "aws_sns_topic" "monitoring" {
   name = "${var.project_name}-monitoring-${var.environment}"
-  
+
   tags = var.tags
 }
 
@@ -71,7 +71,7 @@ resource "aws_sns_topic_subscription" "email" {
 # CloudWatch Dashboard cho monitoring
 resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "${var.project_name}-dashboard-${var.environment}"
-  
+
   dashboard_body = jsonencode({
     widgets = [
       {

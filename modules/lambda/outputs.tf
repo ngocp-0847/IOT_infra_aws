@@ -21,4 +21,4 @@ output "query_function_arn" {
 output "lambda_role_arn" {
   description = "ARN của IAM role cho Lambda"
   value       = aws_iam_role.lambda_role.arn
-} 
+}

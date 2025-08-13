@@ -40,4 +40,28 @@ tags = {
   Environment = "dev"
   Owner       = "devops-team"
   ManagedBy   = "terraform"
-} 
+}
+
+variable "github_owner" {
+  description = "GitHub owner/org for CI/CD pipeline"
+  type        = string
+  default     = "ngocp-0847"
+}
+
+variable "github_repo" {
+  description = "GitHub repository name for CI/CD pipeline"
+  type        = string
+  default     = "IOT_infra_aws"
+}
+
+variable "github_branch" {
+  description = "Branch to trigger pipeline"
+  type        = string
+  default     = "main"
+}
+
+variable "terraform_workdir" {
+  description = "Terraform working directory for pipeline to apply"
+  type        = string
+  default     = "environments/dev"
+}

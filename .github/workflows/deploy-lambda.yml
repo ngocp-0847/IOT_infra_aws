@@ -1,0 +1,189 @@
+# =============================================================================
+# GitHub Actions Workflow - Deploy Lambda Functions
+# =============================================================================
+# 
+# Required Environment Variables (GitHub Repository > Settings > Environments > dev > Environment Variables):
+# - PROJECT_NAME: iot-data-platform (must match terraform.tfvars, use hyphen format)
+# - ENVIRONMENT: dev (must match terraform.tfvars)
+# 
+# Optional Environment Variables (defaults provided):
+# - AWS_REGION: us-east-1 (default)
+# - AWS_ACCOUNT_ID: 206218410076 (default)
+#
+# =============================================================================
+
+name: Deploy Lambda Functions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'modules/lambda/lambda/**'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  
+jobs:
+  deploy:
+    environment: dev
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Debug OIDC Token
+      shell: bash
+      run: |
+        echo "=== Debugging OIDC Token ==="
+        echo "GITHUB_REF: $GITHUB_REF"
+        echo "GITHUB_HEAD_REF: $GITHUB_HEAD_REF"
+        echo "GITHUB_BASE_REF: $GITHUB_BASE_REF"
+        echo "GITHUB_EVENT_NAME: $GITHUB_EVENT_NAME"
+        echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
+        
+        echo "Requesting OIDC token..."
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+          url="$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com"
+          token=$(curl -sSL -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$url" | jq -r .value)
+          
+          echo "=== OIDC Token Claims ==="
+          echo "$token" | awk -F. '{print $2}' | base64 -d 2>/dev/null | jq . || echo "Failed to decode token"
+        else
+          echo "OIDC token request variables not available"
+        fi
+    - name: Check required vars
+      shell: bash
+      run: |
+        echo "=== Checking required environment variables ==="
+        
+        # Check PROJECT_NAME
+        if [ -z "${{ vars.PROJECT_NAME }}" ]; then
+          echo "❌ Missing vars.PROJECT_NAME"
+          echo "Please add PROJECT_NAME in GitHub: Settings > Environments > dev > Environment variables"
+          echo "Expected value: iot_data_platform"
+          exit 1
+        else
+          echo "✅ PROJECT_NAME: ${{ vars.PROJECT_NAME }}"
+        fi
+        
+        # Check ENVIRONMENT
+        if [ -z "${{ vars.ENVIRONMENT }}" ]; then
+          echo "❌ Missing vars.ENVIRONMENT" 
+          echo "Please add ENVIRONMENT in GitHub: Settings > Environments > dev > Environment variables"
+          echo "Expected value: dev"
+          exit 1
+        else
+          echo "✅ ENVIRONMENT: ${{ vars.ENVIRONMENT }}"
+        fi
+        
+        # Check AWS_REGION (optional - defaults to us-east-1)
+        if [ -z "${{ vars.AWS_REGION }}" ]; then
+          echo "⚠️  AWS_REGION not set, using default: ${{ env.AWS_REGION }}"
+        else
+          echo "✅ AWS_REGION: ${{ vars.AWS_REGION }}"
+        fi
+        
+        # Check GITHUB_OWNER and GITHUB_REPO (derived from context)
+        echo "✅ GITHUB_REPOSITORY: ${{ github.repository }}"
+        echo "✅ GITHUB_OWNER: ${{ github.repository_owner }}"
+        
+        # Display IAM Role ARN that will be assumed
+        ROLE_ARN="arn:aws:iam::$AWS_ACCOUNT_ID:role/${{ vars.PROJECT_NAME }}-github-actions-${{ vars.ENVIRONMENT }}"
+        echo "🔑 IAM Role ARN: $ROLE_ARN"
+        
+        echo "=== All required variables check completed ==="
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4.3.1
+      with:
+        role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID || '206218410076' }}:role/${{ vars.PROJECT_NAME }}-github-actions-${{ vars.ENVIRONMENT }}
+        role-session-name: GitHubActions-Lambda-Deploy-${{ github.run_id }}
+        aws-region: ${{ env.AWS_REGION }}
+        audience: sts.amazonaws.com
+        output-credentials: true
+        role-duration-seconds: 3600
+    - name: Verify AWS credentials
+      run: |
+        aws sts get-caller-identity
+        echo "✅ AWS credentials configured successfully"
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies for stream processor
+      run: |
+        mkdir -p /tmp/stream_processor
+        cp modules/lambda/lambda/stream_processor.py /tmp/stream_processor/
+        cd /tmp/stream_processor
+        # Tạo requirements.txt nếu cần
+        if [ -f ../../modules/lambda/lambda/requirements.txt ]; then
+          pip install -r ../../modules/lambda/lambda/requirements.txt -t .
+        fi
+    
+    - name: Install dependencies for query handler  
+      run: |
+        mkdir -p /tmp/query_handler
+        cp modules/lambda/lambda/query_handler.py /tmp/query_handler/
+        cd /tmp/query_handler
+        # Tạo requirements.txt nếu cần
+        if [ -f ../../modules/lambda/lambda/requirements.txt ]; then
+          pip install -r ../../modules/lambda/lambda/requirements.txt -t .
+        fi
+    
+    - name: Package Lambda functions
+      run: |
+        # Package stream processor
+        cd /tmp/stream_processor
+        zip -r /tmp/stream_processor.zip . -x "*.pyc" "__pycache__/*"
+        
+        # Package query handler
+        cd /tmp/query_handler  
+        zip -r /tmp/query_handler.zip . -x "*.pyc" "__pycache__/*"
+    
+    - name: Deploy Stream Processor Lambda
+      run: |
+        echo "Deploying stream processor..."
+        if aws lambda update-function-code \
+          --function-name ${{ vars.PROJECT_NAME }}-stream-processor-${{ vars.ENVIRONMENT }} \
+          --zip-file fileb:///tmp/stream_processor.zip; then
+          echo "✅ Stream processor deployed successfully!"
+        else
+          echo "❌ Failed to deploy stream processor"
+          exit 1
+        fi
+    
+    - name: Deploy Query Handler Lambda
+      run: |
+        echo "Deploying query handler..."
+        if aws lambda update-function-code \
+          --function-name ${{ vars.PROJECT_NAME }}-query-handler-${{ vars.ENVIRONMENT }} \
+          --zip-file fileb:///tmp/query_handler.zip; then
+          echo "✅ Query handler deployed successfully!"
+        else
+          echo "❌ Failed to deploy query handler"
+          exit 1
+        fi
+    
+    - name: Wait for deployment completion
+      run: |
+        echo "Waiting for function updates to complete..."
+        # Chờ function update hoàn thành
+        aws lambda wait function-updated \
+          --function-name ${{ vars.PROJECT_NAME }}-stream-processor-${{ vars.ENVIRONMENT }}
+        echo "✅ Stream processor update completed"
+        
+        aws lambda wait function-updated \
+          --function-name ${{ vars.PROJECT_NAME }}-query-handler-${{ vars.ENVIRONMENT }}
+        echo "✅ Query handler update completed"
+        
+        echo "🎉 All Lambda functions deployed and ready!"

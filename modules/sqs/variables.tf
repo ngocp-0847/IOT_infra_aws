@@ -17,4 +17,9 @@ variable "tags" {
   description = "Tags chung"
   type        = map(string)
   default     = {}
-} 
+}
+
+variable "visibility_timeout_seconds" {
+  description = "Visibility Timeout của SQS (phải >= Lambda timeout)"
+  type        = number
+}

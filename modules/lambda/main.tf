@@ -1,5 +1,5 @@
 # =============================================================================
-# Lambda Module cho IoT Platform - Free Tier Optimized
+# Lambda Module using ZIP deployment (deployed by GitHub Actions)
 # =============================================================================
 
 # IAM Role cho Lambda
@@ -84,18 +84,38 @@ resource "aws_iam_role_policy" "lambda_policy" {
   })
 }
 
-# Lambda Function cho Stream Processing - Free Tier Optimized
+# Placeholder ZIP file for initial deployment
+data "archive_file" "lambda_placeholder" {
+  type        = "zip"
+  output_path = "${path.module}/placeholder_lambda.zip"
+
+  source {
+    content  = <<EOF
+def lambda_handler(event, context):
+    return {
+        'statusCode': 200,
+        'body': 'Placeholder function - will be replaced by GitHub Actions'
+    }
+EOF
+    filename = "lambda_function.py"
+  }
+}
+
+# Lambda Function cho Stream Processing - ZIP deployment
 resource "aws_lambda_function" "stream_processor" {
-  filename         = data.archive_file.stream_processor.output_path
-  function_name    = "${var.project_name}-stream-processor-${var.environment}"
-  role            = aws_iam_role.lambda_role.arn
-  handler         = "stream_processor.handler"
-  runtime         = var.runtime
-  timeout         = 30  # Giảm timeout để tiết kiệm GB-seconds
-  memory_size     = 128  # Giảm memory để tiết kiệm Free Tier GB-seconds
-  
-  # Hash của source code để Terraform detect thay đổi
-  source_code_hash = data.archive_file.stream_processor.output_base64sha256
+  function_name = "${var.project_name}-stream-processor-${var.environment}"
+  role          = aws_iam_role.lambda_role.arn
+
+  # Initial deployment with placeholder
+  filename         = data.archive_file.lambda_placeholder.output_path
+  source_code_hash = data.archive_file.lambda_placeholder.output_base64sha256
+
+  # Runtime configuration
+  runtime = var.runtime
+  handler = "stream_processor.lambda_handler"
+
+  timeout     = var.timeout
+  memory_size = var.memory_size
 
   vpc_config {
     subnet_ids         = var.vpc_config.subnet_ids
@@ -110,20 +130,32 @@ resource "aws_lambda_function" "stream_processor" {
   }
 
   tags = var.tags
+
+  # Ignore changes to source code as it will be updated by GitHub Actions
+  lifecycle {
+    ignore_changes = [
+      filename,
+      source_code_hash,
+      last_modified
+    ]
+  }
 }
 
-# Lambda Function cho Query Handler - Free Tier Optimized
+# Lambda Function cho Query Handler - ZIP deployment
 resource "aws_lambda_function" "query_handler" {
-  filename         = data.archive_file.query_handler.output_path
-  function_name    = "${var.project_name}-query-handler-${var.environment}"
-  role            = aws_iam_role.lambda_role.arn
-  handler         = "query_handler.handler"
-  runtime         = var.runtime
-  timeout         = 30  # Giảm timeout
-  memory_size     = 128  # Giảm memory để tiết kiệm
-  
-  # Hash của source code để Terraform detect thay đổi
-  source_code_hash = data.archive_file.query_handler.output_base64sha256
+  function_name = "${var.project_name}-query-handler-${var.environment}"
+  role          = aws_iam_role.lambda_role.arn
+
+  # Initial deployment with placeholder
+  filename         = data.archive_file.lambda_placeholder.output_path
+  source_code_hash = data.archive_file.lambda_placeholder.output_base64sha256
+
+  # Runtime configuration
+  runtime = var.runtime
+  handler = "query_handler.lambda_handler"
+
+  timeout     = var.timeout
+  memory_size = var.memory_size
 
   environment {
     variables = {
@@ -132,46 +164,36 @@ resource "aws_lambda_function" "query_handler" {
   }
 
   tags = var.tags
+
+  # Ignore changes to source code as it will be updated by GitHub Actions
+  lifecycle {
+    ignore_changes = [
+      filename,
+      source_code_hash,
+      last_modified
+    ]
+  }
 }
 
 # Event Source Mapping cho SQS
 resource "aws_lambda_event_source_mapping" "sqs_mapping" {
-  event_source_arn = var.sqs_queue_arn
-  function_name    = aws_lambda_function.stream_processor.function_name
-  batch_size       = 10    # Tối ưu batch size cho SQS
+  event_source_arn                   = var.sqs_queue_arn
+  function_name                      = aws_lambda_function.stream_processor.function_name
+  batch_size                         = 10
   maximum_batching_window_in_seconds = 5
 }
 
 # CloudWatch Log Groups - Free Tier Optimized
 resource "aws_cloudwatch_log_group" "stream_processor" {
   name              = "/aws/lambda/${aws_lambda_function.stream_processor.function_name}"
-  retention_in_days = 3  # Giảm retention để tiết kiệm CloudWatch costs
+  retention_in_days = 3
 
   tags = var.tags
 }
 
 resource "aws_cloudwatch_log_group" "query_handler" {
   name              = "/aws/lambda/${aws_lambda_function.query_handler.function_name}"
-  retention_in_days = 3  # Giảm retention
+  retention_in_days = 3
 
   tags = var.tags
 }
-
-# Archive files cho Lambda code
-data "archive_file" "stream_processor" {
-  type        = "zip"
-  output_path = "${path.module}/stream_processor.zip"
-  source {
-    content = file("${path.module}/lambda/stream_processor.py")
-    filename = "stream_processor.py"
-  }
-}
-
-data "archive_file" "query_handler" {
-  type        = "zip"
-  output_path = "${path.module}/query_handler.zip"
-  source {
-    content = file("${path.module}/lambda/query_handler.py")
-    filename = "query_handler.py"
-  }
-} 

@@ -34,10 +34,10 @@ module "vpc" {
 module "s3_storage" {
   source = "./modules/s3"
 
-  bucket_name = "${var.s3_bucket_name}-${random_string.suffix.result}"
-  environment = var.environment
+  bucket_name  = "${var.s3_bucket_name}-${random_string.suffix.result}"
+  environment  = var.environment
   project_name = var.project_name
-  tags = var.tags
+  tags         = var.tags
 }
 
 # =============================================================================
@@ -46,10 +46,11 @@ module "s3_storage" {
 module "sqs" {
   source = "./modules/sqs"
 
-  queue_name     = var.sqs_queue_name
-  environment    = var.environment
-  project_name   = var.project_name
-  tags           = var.tags
+  queue_name                 = var.sqs_queue_name
+  environment                = var.environment
+  project_name               = var.project_name
+  visibility_timeout_seconds = var.lambda_timeout
+  tags                       = var.tags
 }
 
 # =============================================================================
@@ -70,14 +71,14 @@ module "dynamodb" {
 module "lambda" {
   source = "./modules/lambda"
 
-  environment      = var.environment
-  project_name     = var.project_name
-  runtime          = var.lambda_runtime
-  timeout          = var.lambda_timeout
-  memory_size      = var.lambda_memory_size
-  sqs_queue_arn    = module.sqs.queue_arn
+  environment         = var.environment
+  project_name        = var.project_name
+  runtime             = var.lambda_runtime
+  timeout             = var.lambda_timeout
+  memory_size         = var.lambda_memory_size
+  sqs_queue_arn       = module.sqs.queue_arn
   dynamodb_table_name = module.dynamodb.table_name
-  s3_bucket_name   = module.s3_storage.bucket_name
+  s3_bucket_name      = module.s3_storage.bucket_name
   vpc_config = {
     subnet_ids         = module.vpc.private_subnet_ids
     security_group_ids = [module.vpc.lambda_security_group_id]
@@ -91,12 +92,12 @@ module "lambda" {
 module "api_gateway" {
   source = "./modules/api-gateway"
 
-  api_name        = var.api_gateway_name
-  environment     = var.environment
-  project_name    = var.project_name
-  lambda_function_arn = module.lambda.query_function_arn
+  api_name             = var.api_gateway_name
+  environment          = var.environment
+  project_name         = var.project_name
+  lambda_function_arn  = module.lambda.query_function_arn
   lambda_function_name = module.lambda.query_function_name
-  tags = var.tags
+  tags                 = var.tags
 }
 
 # =============================================================================
@@ -105,11 +106,11 @@ module "api_gateway" {
 module "iot_core" {
   source = "./modules/iot-core"
 
-  environment    = var.environment
-  project_name   = var.project_name
-  sqs_queue_url  = module.sqs.queue_url
-  sqs_queue_arn  = module.sqs.queue_arn
-  tags = var.tags
+  environment   = var.environment
+  project_name  = var.project_name
+  sqs_queue_url = module.sqs.queue_url
+  sqs_queue_arn = module.sqs.queue_arn
+  tags          = var.tags
 }
 
 # =============================================================================
@@ -118,13 +119,26 @@ module "iot_core" {
 module "monitoring" {
   source = "./modules/monitoring"
 
+  environment          = var.environment
+  project_name         = var.project_name
+  sqs_queue_name       = module.sqs.queue_name
+  dynamodb_table_name  = module.dynamodb.table_name
+  lambda_function_name = module.lambda.query_function_name
+  alert_email          = var.alert_email
+  enable_email_alerts  = var.enable_email_alerts
+  aws_region           = var.aws_region
+  tags                 = var.tags
+}
+
+# =============================================================================
+# CI/CD - GitHub Actions IAM role for Lambda deployment
+# =============================================================================
+module "cicd" {
+  source = "./modules/cicd"
+
   environment  = var.environment
   project_name = var.project_name
-  sqs_queue_name = module.sqs.queue_name
-  dynamodb_table_name = module.dynamodb.table_name
-  lambda_function_name = module.lambda.query_function_name
-  alert_email = var.alert_email
-  enable_email_alerts = var.enable_email_alerts
-  aws_region = var.aws_region
-  tags = var.tags
-} 
+  github_owner = var.github_owner
+  github_repo  = var.github_repo
+  tags         = var.tags
+}

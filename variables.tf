@@ -82,6 +82,13 @@ variable "lambda_timeout" {
   }
 }
 
+# Gỡ biến này vì sẽ tự động dùng lambda_timeout để tránh lệch cấu hình
+# variable "sqs_visibility_timeout" {
+#   description = "Visibility timeout cho SQS queue (seconds). Nên >= lambda_timeout"
+#   type        = number
+#   default     = 300
+# }
+
 variable "lambda_memory_size" {
   description = "Memory size cho Lambda functions (MB)"
   type        = number
@@ -119,4 +126,19 @@ variable "tags" {
     ManagedBy   = "Terraform"
     Owner       = "DevOps Team"
   }
-} 
+}
+
+# =========================
+# CI/CD variables
+# =========================
+variable "github_owner" {
+  description = "GitHub owner/org for CI/CD pipeline"
+  type        = string
+  default     = "ngoctera"
+}
+
+variable "github_repo" {
+  description = "GitHub repository name for GitHub Actions"
+  type        = string
+  default     = "IOT_infra_aws"
+}

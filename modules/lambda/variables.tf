@@ -50,4 +50,4 @@ variable "tags" {
   description = "Tags chung"
   type        = map(string)
   default     = {}
-} 
+}
