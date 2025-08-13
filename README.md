@@ -218,6 +218,9 @@ Thêm CI/CD pipeline để deploy lambda function.
 
 ![6](./images/Screen%20Shot%202025-08-13%20at%2008.08.39.png)
 
+Có dashboard để theo dõi metric
+
+![7](./images/Screen%20Shot%202025-08-13%20at%2008.17.33.png)
 
 ### 🎯 Tính Năng Đã Triển Khai
 
