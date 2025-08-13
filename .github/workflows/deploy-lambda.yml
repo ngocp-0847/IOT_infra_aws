@@ -91,14 +91,6 @@ jobs:
           echo "✅ AWS_REGION: ${{ vars.AWS_REGION }}"
         fi
         
-        # Check AWS_ACCOUNT_ID (optional - defaults to 206218410076)
-        AWS_ACCOUNT_ID="${{ vars.AWS_ACCOUNT_ID || '206218410076' }}"
-        if [ "$AWS_ACCOUNT_ID" = "206218410076" ]; then
-          echo "⚠️  AWS_ACCOUNT_ID not set, using default: $AWS_ACCOUNT_ID"
-        else
-          echo "✅ AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID"
-        fi
-        
         # Check GITHUB_OWNER and GITHUB_REPO (derived from context)
         echo "✅ GITHUB_REPOSITORY: ${{ github.repository }}"
         echo "✅ GITHUB_OWNER: ${{ github.repository_owner }}"
@@ -184,11 +176,14 @@ jobs:
     
     - name: Wait for deployment completion
       run: |
+        echo "Waiting for function updates to complete..."
         # Chờ function update hoàn thành
         aws lambda wait function-updated \
           --function-name ${{ vars.PROJECT_NAME }}-stream-processor-${{ vars.ENVIRONMENT }}
+        echo "✅ Stream processor update completed"
         
         aws lambda wait function-updated \
           --function-name ${{ vars.PROJECT_NAME }}-query-handler-${{ vars.ENVIRONMENT }}
+        echo "✅ Query handler update completed"
         
-        echo "All Lambda functions deployed and ready!"
+        echo "🎉 All Lambda functions deployed and ready!"

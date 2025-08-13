@@ -24,11 +24,7 @@ data "aws_iam_policy_document" "github_actions_assume" {
       type        = "Federated"
       identifiers = [aws_iam_openid_connect_provider.github.arn]
     }
-    condition {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:aud"
-      values   = ["sts.amazonaws.com"]
-    }
+
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
@@ -38,11 +34,6 @@ data "aws_iam_policy_document" "github_actions_assume" {
         "repo:${var.github_owner}/${var.github_repo}:pull_request",
         "repo:${var.github_owner}/${var.github_repo}:environment:dev"
       ]
-    }
-    condition {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:repository"
-      values   = ["${var.github_owner}/${var.github_repo}"]
     }
   }
 }
@@ -77,6 +68,7 @@ data "aws_iam_policy_document" "github_actions_policy" {
     sid = "LambdaAccess"
     actions = [
       "lambda:GetFunction",
+      "lambda:GetFunctionConfiguration",
       "lambda:UpdateFunctionCode",
       "lambda:UpdateFunctionConfiguration",
       "lambda:PublishVersion",

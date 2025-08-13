@@ -214,6 +214,10 @@ Kết quả query data bằng curl qua API Gateway.
   
 ![5](./images/Screen%20Shot%202025-08-03%20at%2021.34.55.png)
 
+Thêm CI/CD pipeline để deploy lambda function.
+
+![6](./images/Screen%20Shot%202025-08-13%20at%2008.08.39.png)
+
 
 ### 🎯 Tính Năng Đã Triển Khai
 
